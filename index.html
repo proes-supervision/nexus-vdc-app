@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="es" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma de Inspección VDC - Enterprise</title>
+    <!-- Tailwind CSS para UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para Íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; }
+        
+        .pdf-wrapper {
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: width 0.15s ease-out, height 0.15s ease-out;
+            margin: auto; 
+        }
+        
+        #pdf-render { display: block; width: 100%; height: 100%; }
+        #drawing-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            z-index: 10;
+        }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        #toast-container {
+            position: fixed;
+            bottom: 50px;
+            right: 20px;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 h-screen w-full flex overflow-hidden text-slate-300">
+
+    <div id="mobile-overlay" class="fixed inset-0 bg-slate-950/80 z-20 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
+
+    <aside id="sidebar" class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col shadow-2xl z-30 flex-shrink-0 absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out">
+        <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600/20 p-2 rounded-lg">
+                    <i class="fas fa-layer-group text-indigo-400 text-xl"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-slate-100 tracking-wide text-sm uppercase">Nexus VDC</h2>
+                    <p class="text-[10px] text-slate-500 font-medium tracking-wider">Módulo de Inspección</p>
+                </div>
+            </div>
+            <button id="btn-close-sidebar" class="md:hidden text-slate-400 hover:text-white transition p-2">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="p-5 border-b border-slate-800 space-y-4">
+            <button id="btn-sync-drive" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-4 rounded border border-indigo-500/50 transition-colors flex items-center justify-center space-x-2 text-sm shadow-[0_0_15px_rgba(79,70,229,0.15)]">
+                <i class="fab fa-google-drive"></i>
+                <span>Conectar Repositorio</span>
+            </button>
+
+            <div>
+                <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Archivo Local</p>
+                <label class="flex items-center justify-center w-full px-4 py-2 border border-slate-700 border-dashed rounded bg-slate-800 hover:bg-slate-700 hover:border-slate-500 cursor-pointer transition-colors">
+                    <i class="fas fa-file-upload text-slate-400 mr-2 text-sm"></i>
+                    <span class="text-xs font-medium text-slate-300">Seleccionar PDF</span>
+                    <input type="file" id="local-file-upload" accept="application/pdf" class="hidden"/>
+                </label>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-3 space-y-2" id="drive-file-list">
+            <div class="flex flex-col items-center justify-center h-full text-slate-600">
+                <i class="fas fa-folder-open text-3xl mb-3 opacity-50"></i>
+                <p class="text-xs text-center px-4">Directorio vacío.<br>Sincronice o cargue un documento.</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen relative bg-[#0B1120] w-full overflow-hidden">
+        
+        <header class="h-auto md:h-14 py-2 md:py-0 bg-slate-900 border-b border-slate-800 flex flex-wrap md:flex-nowrap items-center justify-between px-4 md:px-6 z-10 flex-shrink-0 shadow-md gap-y-2">
+            
+            <div class="flex items-center space-x-3 w-full md:w-1/3 order-1 md:order-1">
+                <button id="btn-open-sidebar" class="md:hidden p-1.5 px-3 text-slate-400 hover:text-white transition rounded bg-slate-800 border border-slate-700">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <i class="fas fa-file-pdf text-slate-500 hidden md:inline-block"></i>
+                <h1 id="document-title" class="text-sm font-medium text-slate-200 truncate">Ningún documento activo</h1>
+            </div>
+
+            <div class="flex items-center justify-center w-full md:w-auto bg-slate-950/50 p-1 rounded-md border border-slate-800 shadow-inner order-3 md:order-2 overflow-x-auto no-scrollbar mx-auto">
+                <button id="btn-zoom-out" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded transition" title="Alejar">
+                    <i class="fas fa-minus text-xs"></i>
+                </button>
+                <span id="zoom-level" class="text-xs font-semibold w-12 text-center text-slate-300">100%</span>
+                <button id="btn-zoom-in" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded transition" title="Acercar">
+                    <i class="fas fa-plus text-xs"></i>
+                </button>
+                
+                <div class="w-px h-5 bg-slate-700 mx-2"></div>
+
+                <button id="btn-draw" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition" title="Lápiz de Trazo Libre">
+                    <i class="fas fa-pen text-sm"></i>
+                </button>
+                
+                <button id="btn-cloud" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded transition" title="Nube de Revisión">
+                    <i class="fas fa-cloud text-sm"></i>
+                </button>
+
+                <button id="btn-pin" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-fuchsia-400 hover:bg-slate-800 rounded transition" title="Pin de Observación">
+                    <i class="fas fa-map-pin text-sm"></i>
+                </button>
+                
+                <button id="btn-undo" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded transition ml-1" title="Deshacer último trazo o marca (Undo)">
+                    <i class="fas fa-undo text-sm"></i>
+                </button>
+            </div>
+
+            <div class="flex items-center justify-end w-full md:w-1/3 space-x-2 order-2 md:order-3">
+                <button id="btn-capture" class="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 rounded transition flex items-center space-x-2" title="Descargar PNG del Plano">
+                    <i class="fas fa-image"></i> <span class="hidden sm:inline">Capturar PNG</span>
+                </button>
+                <button id="btn-share" class="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 border border-indigo-500/50 rounded transition flex items-center space-x-2 shadow-[0_0_10px_rgba(79,70,229,0.2)]" title="Generar Documento PDF con Matriz de Hallazgos">
+                    <i class="fas fa-file-pdf"></i> <span class="hidden sm:inline">Exportar Reporte PDF</span>
+                </button>
+            </div>
+        </header>
+
+        <div id="viewer-container" class="flex-1 overflow-auto p-4 md:p-10 relative">
+            
+            <div id="loading-indicator" class="hidden flex-col items-center justify-center h-full mt-20">
+                <i class="fas fa-circle-notch fa-spin text-3xl text-indigo-500 mb-4"></i>
+                <p class="text-slate-400 text-sm font-medium tracking-wide">Renderizando documento...</p>
+            </div>
+
+            <div id="pdf-wrapper" class="pdf-wrapper bg-white hidden">
+                <canvas id="pdf-render"></canvas>
+                <canvas id="drawing-layer"></canvas>
+            </div>
+
+            <div id="empty-state" class="flex flex-col items-center justify-center h-full text-slate-600 mt-20">
+                <i class="fas fa-vector-square text-6xl mb-6 opacity-20"></i>
+                <h3 class="text-lg font-medium text-slate-400">Área de Trabajo VDC</h3>
+                <p class="text-xs mt-2 text-slate-500 text-center">Seleccione un documento del panel lateral<br>para iniciar la revisión técnica.</p>
+            </div>
+        </div>
+
+        <footer class="bg-slate-900 border-t border-slate-800 py-2.5 px-6 flex flex-col md:flex-row justify-between items-center text-[11px] text-slate-500 flex-shrink-0 z-10">
+            <div class="flex items-center space-x-2 mb-2 md:mb-0">
+                <i class="fas fa-shield-alt text-indigo-500/70"></i>
+                <span class="font-medium">Entorno Seguro • <span class="text-slate-400">v2.4 Enterprise</span></span>
+            </div>
+            <div class="flex items-center space-x-4 text-center md:text-left">
+                <span>Proyecto: <strong class="text-slate-300">Construcción y Equipamiento Hospital Isaias</strong></span>
+                <span class="text-slate-700 hidden md:inline">|</span>
+                <span class="hidden md:inline">Desarrollado por: <strong class="text-indigo-400">Zacarias Ortega - Project Manager</strong></span>
+            </div>
+        </footer>
+
+    </main>
+
+    <div id="hover-image-tooltip" class="fixed hidden z-40 bg-slate-800 border border-slate-600 rounded shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-3 pointer-events-none transform transition-opacity duration-150 min-w-[200px] max-w-[320px]">
+        <div id="hover-header" class="flex items-center space-x-2 mb-2 border-b border-slate-700 pb-2">
+            <i id="hover-icon" class="fas fa-info-circle text-xs"></i> 
+            <span id="hover-title-text" class="text-xs font-bold uppercase tracking-wide">Detalle</span>
+        </div>
+        <p id="hover-text" class="text-xs font-normal text-slate-300 mb-2 hidden leading-relaxed"></p>
+        <img id="hover-image-img" src="" class="max-w-[280px] max-h-[250px] object-cover rounded hidden border border-slate-700" alt="Evidencia">
+    </div>
+
+    <div id="note-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-center justify-center transition-opacity">
+        <div id="modal-container" class="bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-6 w-[400px] max-w-full mx-4 transform transition-all relative overflow-hidden">
+            <div id="modal-color-bar" class="absolute top-0 left-0 w-full h-1"></div>
+            
+            <h3 id="modal-title" class="text-base font-semibold text-slate-100 mb-1 mt-1">Registrar Hallazgo</h3>
+            <p id="modal-subtitle" class="text-xs text-slate-400 mb-5">Ingrese los detalles técnicos para este elemento.</p>
+            
+            <textarea id="note-input" class="w-full bg-slate-950 border border-slate-700 rounded p-3 text-slate-200 text-sm mb-4 resize-none h-24 focus:outline-none focus:border-indigo-500 transition-colors placeholder-slate-600" placeholder="Descripción de la observación..."></textarea>
+            
+            <div id="image-upload-section" class="mb-5">
+                <label class="block text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-2">Evidencia Fotográfica</label>
+                <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-700 border-dashed text-slate-300 py-2.5 px-4 rounded text-xs transition flex items-center justify-center space-x-2 w-full">
+                    <i class="fas fa-camera text-slate-400"></i>
+                    <span>Adjuntar archivo multimedia</span>
+                    <input type="file" id="note-image-input" accept="image/*" capture="environment" class="hidden">
+                </label>
+                
+                <div id="note-image-preview-container" class="hidden mt-3 relative group">
+                    <img id="note-image-preview" class="w-full h-32 object-cover rounded border border-slate-700" src="" alt="Vista previa">
+                    <button id="btn-remove-image" class="absolute top-2 right-2 bg-slate-900/80 text-slate-200 rounded p-1.5 hover:bg-red-500 hover:text-white transition backdrop-blur-sm" title="Remover imagen">
+                        <i class="fas fa-times text-xs w-4 h-4 flex items-center justify-center"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-2 flex justify-end space-x-3">
+                <button id="btn-cancel-note" class="px-4 py-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition text-xs font-medium">Cancelar</button>
+                <button id="btn-save-note" class="px-5 py-2 text-white rounded transition text-xs font-medium shadow-lg">Guardar Registro</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        // LA URL DE TU APPS SCRIPT OFICIAL
+        const API_URL = 'https://script.google.com/macros/s/AKfycbw0tTXzjQSE9CPQukU6obQgwH2LJLigiLCGK9lChdsTiYdd5HWyo7sihAm3os9qEPVF/exec';
+
+        const state = {
+            pdfDoc: null, pageNum: 1, 
+            zoom: 1.0, baseWidth: 0, baseHeight: 0, 
+            isDrawing: false, drawModeActive: false, pinModeActive: false, cloudModeActive: false,
+            isDrawingCloud: false, lastX: 0, lastY: 0, startX: 0, startY: 0,
+            canvasSnapshot: null, currentAction: null, pendingData: null, pendingPinImage: null, 
+            actions: [], currentStroke: null 
+        };
+
+        const DOM = {
+            wrapper: document.getElementById('pdf-wrapper'),
+            pdfCanvas: document.getElementById('pdf-render'),
+            drawCanvas: document.getElementById('drawing-layer'),
+            viewerContainer: document.getElementById('viewer-container'),
+            zoomLevelTxt: document.getElementById('zoom-level'),
+            loading: document.getElementById('loading-indicator'),
+            emptyState: document.getElementById('empty-state'),
+            docTitle: document.getElementById('document-title'),
+            
+            btnDraw: document.getElementById('btn-draw'),
+            btnPin: document.getElementById('btn-pin'),
+            btnCloud: document.getElementById('btn-cloud'),
+            btnUndo: document.getElementById('btn-undo'),
+            
+            noteModal: document.getElementById('note-modal'),
+            modalColorBar: document.getElementById('modal-color-bar'),
+            modalTitle: document.getElementById('modal-title'),
+            modalSubtitle: document.getElementById('modal-subtitle'),
+            noteInput: document.getElementById('note-input'),
+            btnSaveNote: document.getElementById('btn-save-note'),
+            btnCancelNote: document.getElementById('btn-cancel-note'),
+            
+            imageUploadSection: document.getElementById('image-upload-section'),
+            noteImageInput: document.getElementById('note-image-input'),
+            noteImagePreviewContainer: document.getElementById('note-image-preview-container'),
+            noteImagePreview: document.getElementById('note-image-preview'),
+            btnRemoveImage: document.getElementById('btn-remove-image'),
+            
+            hoverTooltip: document.getElementById('hover-image-tooltip'),
+            hoverHeader: document.getElementById('hover-header'),
+            hoverTitleText: document.getElementById('hover-title-text'),
+            hoverIcon: document.getElementById('hover-icon'),
+            hoverText: document.getElementById('hover-text'), 
+            hoverImg: document.getElementById('hover-image-img'),
+
+            sidebar: document.getElementById('sidebar'),
+            mobileOverlay: document.getElementById('mobile-overlay'),
+            btnOpenSidebar: document.getElementById('btn-open-sidebar'),
+            btnCloseSidebar: document.getElementById('btn-close-sidebar')
+        };
+
+        const pdfCtx = DOM.pdfCanvas.getContext('2d');
+        const drawCtx = DOM.drawCanvas.getContext('2d');
+
+        function toggleSidebar() {
+            DOM.sidebar.classList.toggle('-translate-x-full');
+            DOM.mobileOverlay.classList.toggle('hidden');
+        }
+        DOM.btnOpenSidebar.addEventListener('click', toggleSidebar);
+        DOM.btnCloseSidebar.addEventListener('click', toggleSidebar);
+        DOM.mobileOverlay.addEventListener('click', toggleSidebar);
+
+        // ==========================================
+        // MÓDULO 1 y 2: CONEXIÓN REAL CON GOOGLE DRIVE
+        // ==========================================
+        document.getElementById('btn-sync-drive').addEventListener('click', () => {
+            const listContainer = document.getElementById('drive-file-list');
+            listContainer.innerHTML = '<div class="flex flex-col items-center justify-center mt-10"><i class="fas fa-circle-notch fa-spin text-indigo-500 text-2xl mb-2"></i><p class="text-[10px] text-slate-500 uppercase tracking-widest">Escaneando Drive...</p></div>';
+            
+            fetch(API_URL)
+                .then(response => response.json())
+                .then(archivos => {
+                    listContainer.innerHTML = '';
+                    
+                    if(!archivos || archivos.length === 0 || archivos.error) {
+                        listContainer.innerHTML = '<p class="text-xs text-center text-slate-500 mt-10">Carpeta vacía o sin permisos.</p>';
+                        showToast('No se encontraron planos', 'error');
+                        return;
+                    }
+
+                    archivos.forEach(file => {
+                        const el = document.createElement('div');
+                        el.className = 'p-3 bg-slate-800/50 border border-slate-700/50 hover:border-indigo-500/50 hover:bg-slate-800 rounded-md cursor-pointer transition-all flex items-center space-x-3 group mb-2';
+                        
+                        el.innerHTML = `
+                            <i class="fas fa-file-pdf text-red-400/80 text-xl group-hover:text-red-400 transition-colors"></i>
+                            <div class="overflow-hidden w-full">
+                                <h4 class="text-[11px] font-semibold text-slate-300 truncate group-hover:text-white transition-colors" title="${file.name}">${file.name}</h4>
+                                <p class="text-[9px] text-slate-500 mt-0.5">${file.date} • ${file.size}</p>
+                            </div>`;
+                        
+                        el.addEventListener('click', () => { 
+                            const pdfDirectUrl = `https://drive.google.com/uc?export=download&id=${file.id}`;
+                            loadPDF(pdfDirectUrl, file.name); 
+                            if(window.innerWidth < 768) toggleSidebar(); 
+                        });
+                        
+                        listContainer.appendChild(el);
+                    });
+                    showToast(`${archivos.length} planos sincronizados`, 'success');
+                })
+                .catch(err => {
+                    console.error(err);
+                    listContainer.innerHTML = '<p class="text-xs text-center text-red-500 mt-10">Error de conexión.</p>';
+                    showToast('Error al conectar con Google', 'error');
+                });
+        });
+
+        document.getElementById('local-file-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if(!file || file.type !== 'application/pdf') return;
+            const fileReader = new FileReader();
+            fileReader.onload = function() { loadPDF(new Uint8Array(this.result), file.name); if(window.innerWidth < 768) toggleSidebar(); };
+            fileReader.readAsArrayBuffer(file);
+        });
+
+        async function loadPDF(source, title) {
+            DOM.emptyState.classList.add('hidden');
+            DOM.wrapper.classList.add('hidden');
+            DOM.loading.classList.remove('hidden');
+            DOM.loading.style.display = 'flex';
+            DOM.docTitle.textContent = title;
+            try {
+                resetCanvasState(); 
+                const loadingTask = typeof source === 'string' ? pdfjsLib.getDocument(source) : pdfjsLib.getDocument({ data: source });
+                state.pdfDoc = await loadingTask.promise;
+                await renderPage(state.pageNum);
+                DOM.loading.style.display = 'none';
+                DOM.wrapper.classList.remove('hidden');
+            } catch (error) {
+                DOM.loading.style.display = 'none';
+                DOM.emptyState.classList.remove('hidden');
+                showToast('Error al procesar el documento PDF.', 'error');
+            }
+        }
+
+        async function renderPage(num) {
+            const page = await state.pdfDoc.getPage(num);
+            
+            const renderScale = 2.0; 
+            const viewport = page.getViewport({ scale: renderScale });
+            
+            state.baseWidth = viewport.width;
+            state.baseHeight = viewport.height;
+            
+            DOM.pdfCanvas.height = viewport.height; 
+            DOM.pdfCanvas.width = viewport.width;
+            DOM.drawCanvas.height = viewport.height; 
+            DOM.drawCanvas.width = viewport.width;
+            
+            const containerWidth = DOM.viewerContainer.clientWidth - 40; 
+            const containerHeight = DOM.viewerContainer.clientHeight - 40;
+            
+            const fitX = containerWidth / viewport.width;
+            const fitY = containerHeight / viewport.height;
+            
+            let initialZoom = Math.min(fitX, fitY);
+            if(initialZoom > 1.5) initialZoom = 1.5; 
+            
+            state.zoom = parseFloat(initialZoom.toFixed(2));
+            updateZoomUI();
+            
+            await page.render({ canvasContext: pdfCtx, viewport: viewport }).promise;
+            redrawCanvas(); 
+        }
+
+        function updateZoomUI() { 
+            if(!state.baseWidth) return;
+            DOM.wrapper.style.width = `${state.baseWidth * state.zoom}px`;
+            DOM.wrapper.style.height = `${state.baseHeight * state.zoom}px`;
+            DOM.zoomLevelTxt.textContent = Math.round(state.zoom * 200) + '%'; 
+        }
+        
+        document.getElementById('btn-zoom-in').addEventListener('click', () => { 
+            if(state.zoom < 5.0) { state.zoom += 0.1; updateZoomUI(); }
+        });
+        document.getElementById('btn-zoom-out').addEventListener('click', () => { 
+            if(state.zoom > 0.05) { state.zoom -= 0.1; updateZoomUI(); }
+        });
+
+        function resetTools() {
+            state.drawModeActive = false; state.pinModeActive = false; state.cloudModeActive = false;
+            DOM.btnDraw.className = "w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition";
+            DOM.btnPin.className = "w-8 h-8 flex items-center justify-center text-slate-400 hover:text-fuchsia-400 hover:bg-slate-800 rounded transition";
+            DOM.btnCloud.className = "w-8 h-8 flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded transition";
+            DOM.wrapper.style.cursor = 'default';
+        }
+
+        DOM.btnDraw.addEventListener('click', () => { const wasActive = state.drawModeActive; resetTools(); if (!wasActive) { state.drawModeActive = true; DOM.btnDraw.classList.add('bg-slate-800', 'text-red-400'); DOM.wrapper.style.cursor = 'crosshair'; }});
+        DOM.btnPin.addEventListener('click', () => { const wasActive = state.pinModeActive; resetTools(); if (!wasActive) { state.pinModeActive = true; DOM.btnPin.classList.add('bg-slate-800', 'text-fuchsia-400'); DOM.wrapper.style.cursor = 'crosshair'; }});
+        DOM.btnCloud.addEventListener('click', () => { const wasActive = state.cloudModeActive; resetTools(); if (!wasActive) { state.cloudModeActive = true; DOM.btnCloud.classList.add('bg-slate-800', 'text-orange-400'); DOM.wrapper.style.cursor = 'crosshair'; showToast('Arrastre para generar Nube de Revisión', 'info'); }});
+
+        function resetCanvasState() { 
+            drawCtx.clearRect(0, 0, DOM.drawCanvas.width, DOM.drawCanvas.height); 
+            state.actions = []; 
+            DOM.hoverTooltip.classList.add('hidden'); 
+        }
+
+        function redrawCanvas() {
+            drawCtx.clearRect(0, 0, DOM.drawCanvas.width, DOM.drawCanvas.height);
+            for (let action of state.actions) {
+                if (action.type === 'stroke') {
+                    const pts = action.data.points;
+                    if (!pts || pts.length < 2) continue;
+                    drawCtx.beginPath(); drawCtx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) drawCtx.lineTo(pts[i].x, pts[i].y);
+                    drawCtx.strokeStyle = 'rgba(239, 68, 68, 0.8)'; drawCtx.lineWidth = 3; drawCtx.lineCap = 'round'; drawCtx.lineJoin = 'round'; drawCtx.stroke();
+                } else if (action.type === 'pin') {
+                    const pd = action.data;
+                    drawCtx.beginPath(); drawCtx.arc(pd.x, pd.y, 14, 0, Math.PI * 2); drawCtx.fillStyle = 'rgba(217, 70, 239, 0.2)'; drawCtx.fill();
+                    drawCtx.beginPath(); drawCtx.arc(pd.x, pd.y, 6, 0, Math.PI * 2); drawCtx.fillStyle = '#d946ef'; drawCtx.fill(); drawCtx.lineWidth = 2; drawCtx.strokeStyle = '#ffffff'; drawCtx.stroke();
+                } else if (action.type === 'cloud') {
+                    const cd = action.data;
+                    drawCloudPath(drawCtx, cd.x, cd.y, cd.w, cd.h);
+                    drawCtx.fillStyle = 'rgba(249, 115, 22, 0.15)'; drawCtx.fill();
+                    drawCtx.strokeStyle = '#f97316'; drawCtx.lineWidth = 2; drawCtx.stroke();
+                }
+            }
+        }
+
+        DOM.btnUndo.addEventListener('click', () => {
+            if (state.actions.length === 0) {
+                showToast('No hay acciones para deshacer', 'info'); return;
+            }
+            state.actions.pop(); 
+            redrawCanvas(); 
+            DOM.hoverTooltip.classList.add('hidden');
+            showToast('Última acción eliminada', 'success');
+        });
+
+        function getCoordinates(e) { 
+            const rect = DOM.drawCanvas.getBoundingClientRect(); 
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
+            } else if (e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY;
+            }
+            
+            return { x: (clientX - rect.left) / state.zoom, y: (clientY - rect.top) / state.zoom }; 
+        }
+
+        function drawCloudPath(ctx, x, y, width, height) {
+            const segmentLength = 12; 
+            const bulgeFactor = 0.6;  
+            
+            ctx.beginPath();
+            const drawBumpyLine = (startX, startY, endX, endY) => {
+                const dx = endX - startX; const dy = endY - startY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if(distance === 0) return;
+                
+                const bumpCount = Math.max(1, Math.floor(distance / segmentLength));
+                const stepX = dx / bumpCount; const stepY = dy / bumpCount;
+                
+                const nx = dy / distance;
+                const ny = -dx / distance;
+
+                for (let i = 0; i < bumpCount; i++) {
+                    const p1x = startX + stepX * i; const p1y = startY + stepY * i;
+                    const p2x = startX + stepX * (i + 1); const p2y = startY + stepY * (i + 1);
+                    const midX = (p1x + p2x) / 2; const midY = (p1y + p2y) / 2;
+                    
+                    const actualDist = distance / bumpCount;
+                    const cpX = midX + nx * (actualDist * bulgeFactor);
+                    const cpY = midY + ny * (actualDist * bulgeFactor);
+                    ctx.quadraticCurveTo(cpX, cpY, p2x, p2y);
+                }
+            };
+
+            ctx.moveTo(x, y);
+            drawBumpyLine(x, y, x + width, y); 
+            drawBumpyLine(x + width, y, x + width, y + height); 
+            drawBumpyLine(x + width, y + height, x, y + height); 
+            drawBumpyLine(x, y + height, x, y); 
+            ctx.closePath();
+        }
+
+        DOM.noteImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => { state.pendingPinImage = event.target.result; DOM.noteImagePreview.src = state.pendingPinImage; DOM.noteImagePreviewContainer.classList.remove('hidden'); };
+                reader.readAsDataURL(file);
+            }
+        });
+        DOM.btnRemoveImage.addEventListener('click', () => { state.pendingPinImage = null; DOM.noteImageInput.value = ''; DOM.noteImagePreviewContainer.classList.add('hidden'); });
+
+        const handlePointerDown = (e) => {
+            const coords = getCoordinates(e);
+            
+            // Variables para posición del Tooltip en táctil
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
+            }
+
+            if (state.cloudModeActive) {
+                state.isDrawingCloud = true; state.startX = coords.x; state.startY = coords.y;
+                state.canvasSnapshot = drawCtx.getImageData(0, 0, DOM.drawCanvas.width, DOM.drawCanvas.height);
+                return;
+            }
+
+            if (state.pinModeActive) {
+                state.currentAction = 'pin'; state.pendingData = coords;
+                
+                DOM.modalColorBar.className = "absolute top-0 left-0 w-full h-1 bg-fuchsia-500";
+                DOM.modalTitle.textContent = "Registrar Hallazgo en Punto";
+                DOM.btnSaveNote.className = "px-5 py-2 text-white rounded transition text-xs font-medium shadow-lg bg-fuchsia-600 hover:bg-fuchsia-500";
+                DOM.imageUploadSection.classList.remove('hidden');
+                
+                DOM.noteInput.value = ''; state.pendingPinImage = null; DOM.noteImageInput.value = ''; DOM.noteImagePreviewContainer.classList.add('hidden');
+                DOM.noteModal.classList.remove('hidden');
+                setTimeout(() => DOM.noteInput.focus(), 100);
+                return; 
+            }
+
+            if (state.drawModeActive) { 
+                state.isDrawing = true; 
+                state.lastX = coords.x; state.lastY = coords.y; 
+                state.currentStroke = [{x: coords.x, y: coords.y}]; 
+                return;
+            }
+
+            // NUEVO: LÓGICA DE INSPECCIÓN TÁCTIL (TAP TO VIEW) PARA MÓVILES
+            // Si ninguna herramienta está activa, un toque en la pantalla actúa como inspector
+            let tappedItem = null;
+            for (let action of state.actions) {
+                if (action.type === 'pin') {
+                    const pin = action.data;
+                    const dx = coords.x - pin.x; const dy = coords.y - pin.y;
+                    // Aumentamos el radio de colisión a 30 para que sea más fácil acertar con el dedo
+                    if (Math.sqrt(dx * dx + dy * dy) < 30) { tappedItem = action; break; }
+                } else if (action.type === 'cloud') {
+                    const cloud = action.data;
+                    if (coords.x >= cloud.x && coords.x <= cloud.x + cloud.w && coords.y >= cloud.y && coords.y <= cloud.y + cloud.h) {
+                        tappedItem = action; break;
+                    }
+                }
+            }
+
+            if (tappedItem) {
+                if (tappedItem.type === 'pin') {
+                    DOM.hoverHeader.className = "flex items-center space-x-2 mb-2 border-b border-slate-700 pb-2 text-fuchsia-400";
+                    DOM.hoverIcon.className = "fas fa-map-pin text-xs";
+                    DOM.hoverTitleText.textContent = "HALLAZGO EN PUNTO";
+                    if(tappedItem.data.image) { DOM.hoverImg.src = tappedItem.data.image; DOM.hoverImg.classList.remove('hidden'); } else { DOM.hoverImg.classList.add('hidden'); }
+                } else if (tappedItem.type === 'cloud') {
+                    DOM.hoverHeader.className = "flex items-center space-x-2 mb-2 border-b border-slate-700 pb-2 text-orange-400";
+                    DOM.hoverIcon.className = "fas fa-cloud text-xs";
+                    DOM.hoverTitleText.textContent = "ÁREA DE REVISIÓN";
+                    DOM.hoverImg.classList.add('hidden');
+                }
+
+                if (tappedItem.data.text) { DOM.hoverText.textContent = tappedItem.data.text; DOM.hoverText.classList.remove('hidden'); } else { DOM.hoverText.classList.add('hidden'); }
+
+                let leftPos = clientX + 15; let topPos = clientY + 15;
+                if (leftPos + 320 > window.innerWidth) leftPos = clientX - 340;
+                if (topPos + 320 > window.innerHeight) topPos = clientY - 340;
+
+                DOM.hoverTooltip.style.left = leftPos + 'px'; DOM.hoverTooltip.style.top = topPos + 'px';
+                DOM.hoverTooltip.classList.remove('hidden');
+            } else {
+                // Si toca en una zona vacía, se oculta la tarjeta
+                DOM.hoverTooltip.classList.add('hidden');
+            }
+        };
+
+        const handlePointerMove = (e) => {
+            if ((state.isDrawing || state.isDrawingCloud) && e.cancelable) e.preventDefault(); 
+            const coords = getCoordinates(e);
+            
+            if (state.isDrawingCloud && state.cloudModeActive) {
+                drawCtx.putImageData(state.canvasSnapshot, 0, 0);
+                
+                const normX = Math.min(state.startX, coords.x);
+                const normY = Math.min(state.startY, coords.y);
+                const normW = Math.abs(coords.x - state.startX);
+                const normH = Math.abs(coords.y - state.startY);
+                
+                if (normW > 5 && normH > 5) {
+                    drawCloudPath(drawCtx, normX, normY, normW, normH);
+                    drawCtx.fillStyle = 'rgba(249, 115, 22, 0.15)'; 
+                    drawCtx.fill();
+                    drawCtx.strokeStyle = '#f97316'; 
+                    drawCtx.lineWidth = 2;
+                    drawCtx.stroke();
+                }
+                return;
+            }
+
+            if (state.isDrawing && state.drawModeActive) {
+                state.currentStroke.push({x: coords.x, y: coords.y}); 
+                drawCtx.beginPath(); drawCtx.moveTo(state.lastX, state.lastY); drawCtx.lineTo(coords.x, coords.y);
+                drawCtx.strokeStyle = 'rgba(239, 68, 68, 0.8)'; drawCtx.lineWidth = 3; drawCtx.lineCap = 'round'; drawCtx.lineJoin = 'round'; drawCtx.stroke();
+                state.lastX = coords.x; state.lastY = coords.y;
+                return;
+            }
+
+            if (e.type === 'touchmove') return;
+
+            let hoveringItem = null;
+            if (!state.isDrawing && !state.isDrawingCloud) {
+                for (let action of state.actions) {
+                    if (action.type === 'pin') {
+                        const pin = action.data;
+                        const dx = coords.x - pin.x; const dy = coords.y - pin.y;
+                        if (Math.sqrt(dx * dx + dy * dy) < 20) { hoveringItem = action; break; }
+                    } else if (action.type === 'cloud') {
+                        const cloud = action.data;
+                        if (coords.x >= cloud.x && coords.x <= cloud.x + cloud.w && coords.y >= cloud.y && coords.y <= cloud.y + cloud.h) {
+                            hoveringItem = action; break;
+                        }
+                    }
+                }
+            }
+
+            if (hoveringItem) {
+                if (hoveringItem.type === 'pin') {
+                    DOM.hoverHeader.className = "flex items-center space-x-2 mb-2 border-b border-slate-700 pb-2 text-fuchsia-400";
+                    DOM.hoverIcon.className = "fas fa-map-pin text-xs";
+                    DOM.hoverTitleText.textContent = "HALLAZGO EN PUNTO";
+                    if(hoveringItem.data.image) { DOM.hoverImg.src = hoveringItem.data.image; DOM.hoverImg.classList.remove('hidden'); } else { DOM.hoverImg.classList.add('hidden'); }
+                } else if (hoveringItem.type === 'cloud') {
+                    DOM.hoverHeader.className = "flex items-center space-x-2 mb-2 border-b border-slate-700 pb-2 text-orange-400";
+                    DOM.hoverIcon.className = "fas fa-cloud text-xs";
+                    DOM.hoverTitleText.textContent = "ÁREA DE REVISIÓN";
+                    DOM.hoverImg.classList.add('hidden');
+                }
+
+                if (hoveringItem.data.text) { DOM.hoverText.textContent = hoveringItem.data.text; DOM.hoverText.classList.remove('hidden'); } else { DOM.hoverText.classList.add('hidden'); }
+
+                let leftPos = e.clientX + 15; let topPos = e.clientY + 15;
+                if (leftPos + 320 > window.innerWidth) leftPos = e.clientX - 340;
+                if (topPos + 320 > window.innerHeight) topPos = e.clientY - 340;
+
+                DOM.hoverTooltip.style.left = leftPos + 'px'; DOM.hoverTooltip.style.top = topPos + 'px';
+                DOM.hoverTooltip.classList.remove('hidden');
+                DOM.wrapper.style.cursor = 'help';
+            } else {
+                DOM.hoverTooltip.classList.add('hidden');
+                if (!state.drawModeActive && !state.pinModeActive && !state.cloudModeActive) DOM.wrapper.style.cursor = 'default';
+            }
+        };
+
+        const handlePointerUp = (e) => {
+            if (state.isDrawing && state.drawModeActive) {
+                state.isDrawing = false;
+                if (state.currentStroke && state.currentStroke.length > 1) {
+                    state.actions.push({ type: 'stroke', data: { points: state.currentStroke } });
+                }
+                state.currentStroke = null;
+            }
+
+            if (state.isDrawingCloud && state.cloudModeActive) {
+                state.isDrawingCloud = false;
+                const coords = getCoordinates(e);
+                
+                const normX = Math.min(state.startX, coords.x);
+                const normY = Math.min(state.startY, coords.y);
+                const normW = Math.abs(coords.x - state.startX);
+                const normH = Math.abs(coords.y - state.startY);
+
+                if (normW < 15 || normH < 15) { drawCtx.putImageData(state.canvasSnapshot, 0, 0); return; }
+
+                state.currentAction = 'cloud';
+                state.pendingData = { x: normX, y: normY, w: normW, h: normH };
+                
+                DOM.modalColorBar.className = "absolute top-0 left-0 w-full h-1 bg-orange-500";
+                DOM.modalTitle.textContent = "Asignar Observación a Nube";
+                DOM.btnSaveNote.className = "px-5 py-2 text-white rounded transition text-xs font-medium shadow-lg bg-orange-600 hover:bg-orange-500";
+                DOM.imageUploadSection.classList.add('hidden');
+                
+                DOM.noteInput.value = '';
+                DOM.noteModal.classList.remove('hidden');
+                setTimeout(() => DOM.noteInput.focus(), 100);
+            }
+        };
+
+        DOM.drawCanvas.addEventListener('mousedown', handlePointerDown);
+        DOM.drawCanvas.addEventListener('mousemove', handlePointerMove);
+        DOM.drawCanvas.addEventListener('mouseup', handlePointerUp);
+        DOM.drawCanvas.addEventListener('mouseout', () => { if(state.isDrawing) handlePointerUp(); });
+
+        DOM.drawCanvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+        DOM.drawCanvas.addEventListener('touchmove', handlePointerMove, { passive: false });
+        DOM.drawCanvas.addEventListener('touchend', handlePointerUp);
+
+        DOM.btnCancelNote.addEventListener('click', () => {
+            if (state.currentAction === 'cloud' && state.canvasSnapshot) drawCtx.putImageData(state.canvasSnapshot, 0, 0);
+            DOM.noteModal.classList.add('hidden'); state.pendingData = null; state.currentAction = null;
+        });
+
+        // ==========================================
+        // GUARDAR ACCIÓN + ENVIAR A GOOGLE SHEETS
+        // ==========================================
+        DOM.btnSaveNote.addEventListener('click', () => {
+            const nota = DOM.noteInput.value.trim();
+            if (state.currentAction === 'pin') {
+                if ((nota !== "" || state.pendingPinImage) && state.pendingData) {
+                    state.actions.push({ type: 'pin', data: { x: state.pendingData.x, y: state.pendingData.y, text: nota, image: state.pendingPinImage } });
+                    redrawCanvas();
+                    showToast('Hallazgo registrado', 'success');
+                    
+                    // Enviar a Google Sheets
+                    fetch(API_URL, { method: 'POST', body: JSON.stringify({ tipo: 'Pin', x: state.pendingData.x, y: state.pendingData.y, texto: nota }) })
+                        .catch(e => console.error("Error Sheets:", e));
+
+                } else { showToast('Requiere descripción o evidencia', 'error'); return; }
+            } 
+            else if (state.currentAction === 'cloud') {
+                if (nota !== "" && state.pendingData) {
+                    state.actions.push({ type: 'cloud', data: { x: state.pendingData.x, y: state.pendingData.y, w: state.pendingData.w, h: state.pendingData.h, text: nota } });
+                    redrawCanvas();
+                    showToast('Nube validada', 'success');
+                    
+                    // Enviar a Google Sheets
+                    fetch(API_URL, { method: 'POST', body: JSON.stringify({ tipo: 'Nube', x: state.pendingData.x, y: state.pendingData.y, texto: nota }) })
+                        .catch(e => console.error("Error Sheets:", e));
+
+                } else {
+                    drawCtx.putImageData(state.canvasSnapshot, 0, 0); showToast('Nube cancelada: Descripción obligatoria', 'error');
+                }
+            }
+            DOM.noteModal.classList.add('hidden'); state.pendingData = null; state.pendingPinImage = null; state.currentAction = null;
+        });
+
+        document.getElementById('btn-capture').addEventListener('click', async () => {
+            if (!state.pdfDoc) return null;
+            showToast('Procesando exportación de alta calidad...', 'info');
+            const currentZoom = state.zoom; state.zoom = 1.0; updateZoomUI();
+            try {
+                await new Promise(r => setTimeout(r, 150));
+                const canvas = await html2canvas(DOM.wrapper, { scale: 1, useCORS: true, backgroundColor: '#ffffff' });
+                state.zoom = currentZoom; updateZoomUI(); 
+                
+                const link = document.createElement('a'); 
+                link.download = `Snapshot_Plano_${Date.now()}.png`; 
+                link.href = canvas.toDataURL('image/png'); 
+                link.click();
+                showToast('Captura guardada', 'success');
+            } catch (err) { 
+                state.zoom = currentZoom; updateZoomUI(); showToast('Error en exportación', 'error'); 
+            }
+        });
+
+        document.getElementById('btn-share').addEventListener('click', async () => {
+            if (!state.pdfDoc) { showToast('No hay documento abierto para exportar', 'error'); return; }
+            
+            showToast('Maquetando Reporte PDF. Esto puede tardar unos segundos...', 'info');
+            
+            setTimeout(async () => {
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('landscape', 'mm', 'a3'); 
+                    
+                    const currentZoom = state.zoom; 
+                    state.zoom = 1.0; 
+                    updateZoomUI();
+                    await new Promise(r => setTimeout(r, 150)); 
+                    
+                    const canvas = await html2canvas(DOM.wrapper, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' });
+                    state.zoom = currentZoom; 
+                    updateZoomUI();
+                    
+                    const canvasImgData = canvas.toDataURL('image/jpeg', 0.85);
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    
+                    const imgProps = pdf.getImageProperties(canvasImgData);
+                    const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height);
+                    const finalWidth = imgProps.width * ratio;
+                    const finalHeight = imgProps.height * ratio;
+                    const xOffset = (pdfWidth - finalWidth) / 2;
+                    const yOffset = (pdfHeight - finalHeight) / 2;
+                    
+                    pdf.addImage(canvasImgData, 'JPEG', xOffset, yOffset, finalWidth, finalHeight);
+                    
+                    const findings = state.actions.filter(a => a.type === 'pin' || a.type === 'cloud');
+                    
+                    if (findings.length > 0) {
+                        pdf.addPage('a4', 'portrait'); 
+                        let cursorY = 20;
+                        const margin = 20;
+                        const pageHeight = 297; 
+                        const contentWidth = 210 - (margin * 2);
+                        
+                        pdf.setFontSize(18);
+                        pdf.setFont("helvetica", "bold");
+                        pdf.setTextColor(30, 41, 59); 
+                        pdf.text("Matriz de Hallazgos VDC", margin, cursorY);
+                        cursorY += 8;
+                        
+                        pdf.setFontSize(10);
+                        pdf.setFont("helvetica", "normal");
+                        pdf.setTextColor(100, 116, 139); 
+                        pdf.text(`Documento base: ${DOM.docTitle.textContent}  |  Fecha: ${new Date().toLocaleDateString()}`, margin, cursorY);
+                        cursorY += 15;
+                        
+                        for (let i = 0; i < findings.length; i++) {
+                            const item = findings[i];
+                            
+                            if (cursorY > pageHeight - 40) {
+                                pdf.addPage('a4', 'portrait');
+                                cursorY = 20;
+                            }
+                            
+                            pdf.setFontSize(12);
+                            pdf.setFont("helvetica", "bold");
+                            pdf.setTextColor(15, 23, 42); 
+                            
+                            const tipoTxt = item.type === 'pin' ? 'Inspección de Punto' : 'Inspección de Área (Nube)';
+                            const headerTxt = `Hallazgo #${i + 1} - ${tipoTxt}`;
+                            
+                            if(item.type === 'pin') { pdf.setFillColor(217, 70, 239); } 
+                            else { pdf.setFillColor(249, 115, 22); }
+                            pdf.circle(margin + 2, cursorY - 1, 3, 'F');
+                            
+                            pdf.text(headerTxt, margin + 8, cursorY);
+                            cursorY += 8;
+                            
+                            pdf.setFontSize(10);
+                            pdf.setFont("helvetica", "normal");
+                            pdf.setTextColor(51, 65, 85); 
+                            const textLines = pdf.splitTextToSize(item.data.text || "Sin descripción proporcionada.", contentWidth - 8);
+                            pdf.text(textLines, margin + 8, cursorY);
+                            cursorY += (textLines.length * 5) + 5;
+                            
+                            if (item.data.image) {
+                                try {
+                                    const imgProp = pdf.getImageProperties(item.data.image);
+                                    const maxW = 100;
+                                    const maxH = 70;
+                                    const iRatio = Math.min(maxW / imgProp.width, maxH / imgProp.height);
+                                    const iW = imgProp.width * iRatio;
+                                    const iH = imgProp.height * iRatio;
+                                    
+                                    if (cursorY + iH > pageHeight - 20) {
+                                        pdf.addPage('a4', 'portrait');
+                                        cursorY = 20;
+                                    }
+                                    
+                                    pdf.setDrawColor(203, 213, 225); 
+                                    pdf.setLineWidth(0.5);
+                                    pdf.rect(margin + 8, cursorY, iW, iH);
+                                    
+                                    pdf.addImage(item.data.image, 'JPEG', margin + 8, cursorY, iW, iH);
+                                    cursorY += iH + 10;
+                                } catch(e) {
+                                    console.error("Error incrustando imagen PDF", e);
+                                }
+                            }
+                            
+                            pdf.setDrawColor(226, 232, 240); 
+                            pdf.line(margin, cursorY, margin + contentWidth, cursorY);
+                            cursorY += 10;
+                        }
+                    }
+
+                    const pdfBlob = pdf.output('blob');
+                    const suggestedName = `Reporte_Oficial_${Date.now()}.pdf`;
+                    
+                    const forceClassicDownload = () => {
+                        const url = URL.createObjectURL(pdfBlob);
+                        const link = document.createElement('a');
+                        link.href = url; link.download = suggestedName;
+                        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                        showToast('Descarga del Reporte PDF completada', 'success');
+                    };
+
+                    try {
+                        if (window.showSaveFilePicker) {
+                            try {
+                                const fileHandle = await window.showSaveFilePicker({ 
+                                    suggestedName: suggestedName, 
+                                    types: [{ description: 'Reporte PDF', accept: { 'application/pdf': ['.pdf'] } }] 
+                                });
+                                const writable = await fileHandle.createWritable(); 
+                                await writable.write(pdfBlob); 
+                                await writable.close();
+                                showToast('Reporte PDF guardado exitosamente', 'success');
+                            } catch (pickerError) {
+                                if (pickerError.name === 'AbortError') return;
+                                forceClassicDownload();
+                            }
+                        } else { forceClassicDownload(); }
+                    } catch (error) { 
+                        forceClassicDownload();
+                    }
+
+                } catch (err) {
+                    showToast('Error crítico generando el Reporte PDF', 'error');
+                }
+            }, 50); 
+        });
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            let color = 'bg-slate-800 border-l-4 border-indigo-500'; let icon = 'fa-info-circle text-indigo-400';
+            if(type === 'success') { color = 'bg-slate-800 border-l-4 border-emerald-500'; icon = 'fa-check-circle text-emerald-400'; }
+            if(type === 'error') { color = 'bg-slate-800 border-l-4 border-rose-500'; icon = 'fa-exclamation-circle text-rose-400'; }
+            toast.className = `flex items-center space-x-3 ${color} text-slate-200 px-4 py-3 rounded shadow-xl mb-2 transform transition-all duration-300 translate-y-10 opacity-0 text-xs font-medium tracking-wide`;
+            toast.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 10);
+            setTimeout(() => { toast.classList.add('opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+    </script>
+</body>
+</html>
