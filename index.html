@@ -86,10 +86,10 @@
 
             <div class="flex items-center justify-end w-full md:w-1/3 space-x-2 order-2 md:order-3">
                 <button id="btn-capture" class="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition flex items-center space-x-2">
-                    <i class="fas fa-image"></i> <span class="hidden sm:inline">Capturar PNG</span>
+                    <i class="fas fa-image"></i> <span class="hidden sm:inline">Capturar Plano</span>
                 </button>
                 <button id="btn-share" class="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded transition flex items-center space-x-2 shadow-lg">
-                    <i class="fas fa-cloud-upload-alt"></i> <span class="hidden sm:inline">Guardar Reporte (Drive)</span>
+                    <i class="fas fa-share-nodes"></i> <span class="hidden sm:inline">Exportar / Compartir</span>
                 </button>
             </div>
         </header>
@@ -113,7 +113,7 @@
         <footer class="bg-slate-900 border-t border-slate-800 py-2.5 px-6 flex flex-col md:flex-row justify-between items-center text-[11px] text-slate-500 flex-shrink-0 z-10">
             <div class="flex items-center space-x-2 mb-2 md:mb-0">
                 <i class="fas fa-shield-alt text-indigo-500/70"></i>
-                <span class="font-medium">Entorno Seguro • <span class="text-slate-400">v2.4 Enterprise</span></span>
+                <span class="font-medium">Entorno Seguro • <span class="text-slate-400">v2.5 Enterprise</span></span>
             </div>
             <div class="flex items-center space-x-4 text-center md:text-left">
                 <span>Proyecto: <strong class="text-slate-300">Construcción y Equipamiento Hospital Isaias</strong></span>
@@ -173,7 +173,7 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        // URL DE TU APPS SCRIPT
+        // URL DE TU APPS SCRIPT OFICIAL
         const API_URL = 'https://script.google.com/macros/s/AKfycbw0tTXzjQSE9CPQukU6obQgwH2LJLigiLCGK9lChdsTiYdd5HWyo7sihAm3os9qEPVF/exec';
 
         const state = {
@@ -215,7 +215,7 @@
                 .then(archivos => {
                     listContainer.innerHTML = '';
                     if(!archivos || archivos.length === 0 || archivos.error) {
-                        listContainer.innerHTML = '<p class="text-xs text-center text-slate-500 mt-10">Carpeta vacía o error.</p>'; return;
+                        listContainer.innerHTML = '<p class="text-xs text-center text-slate-500 mt-10">Carpeta vacía o sin permisos de acceso.</p>'; return;
                     }
                     archivos.forEach(file => {
                         const el = document.createElement('div');
@@ -231,7 +231,7 @@
                     });
                     showToast(`${archivos.length} planos sincronizados`, 'success');
                 }).catch(err => {
-                    listContainer.innerHTML = '<p class="text-xs text-center text-red-500 mt-10">Error de conexión.</p>';
+                    listContainer.innerHTML = '<p class="text-xs text-center text-red-500 mt-10">Error de red.</p>';
                     showToast('Error al conectar con Google', 'error');
                 });
         });
@@ -253,9 +253,14 @@
                 
                 let finalSource = source;
                 if (typeof source === 'string' && source.includes('action=download')) {
-                    DOM.loading.querySelector('p').textContent = 'Descargando seguro desde Drive...';
-                    const res = await fetch(source);
-                    const json = await res.json();
+                    DOM.loading.querySelector('p').textContent = 'Descargando desde Drive...';
+                    const res = await fetch(source, { redirect: 'follow' });
+                    const textData = await res.text();
+                    
+                    let json;
+                    try { json = JSON.parse(textData); } 
+                    catch (e) { throw new Error('Error Autenticación: Debes configurar el Apps Script para "Cualquier persona"'); }
+                    
                     if(json.error) throw new Error(json.error);
                     const binaryString = window.atob(json.base64);
                     const bytes = new Uint8Array(binaryString.length);
@@ -272,7 +277,7 @@
             } catch (error) {
                 console.error(error);
                 DOM.loading.style.display = 'none'; DOM.emptyState.classList.remove('hidden');
-                showToast('Error al procesar documento. Revisa tu Drive.', 'error');
+                showToast(error.message || 'Error al procesar documento. Revisa tu Drive.', 'error');
             }
         }
 
@@ -330,7 +335,6 @@
                     drawCtx.strokeStyle = 'rgba(239, 68, 68, 0.8)'; drawCtx.lineWidth = 3; drawCtx.lineCap = 'round'; drawCtx.lineJoin = 'round'; drawCtx.stroke();
                 } else if (action.type === 'pin') {
                     const pd = action.data;
-                    // Punto Central Notorio y Más Grande
                     drawCtx.beginPath(); drawCtx.arc(pd.x, pd.y, 24, 0, Math.PI * 2); drawCtx.fillStyle = 'rgba(217, 70, 239, 0.3)'; drawCtx.fill();
                     drawCtx.beginPath(); drawCtx.arc(pd.x, pd.y, 10, 0, Math.PI * 2); drawCtx.fillStyle = '#d946ef'; drawCtx.fill(); 
                     drawCtx.lineWidth = 3; drawCtx.strokeStyle = '#ffffff'; drawCtx.stroke();
@@ -562,6 +566,7 @@
             DOM.noteModal.classList.add('hidden'); state.pendingData = null; state.currentAction = null;
         });
 
+        // ENVÍO DE DATOS A HOJA DE CÁLCULO SEGURO (SE MANTIENE)
         DOM.btnSaveNote.addEventListener('click', () => {
             const nota = DOM.noteInput.value.trim();
             if (state.currentAction === 'pin') {
@@ -593,32 +598,23 @@
         });
 
         // ==========================================
-        // SUBIDA A GOOGLE DRIVE "REPORTES" DIRECTA
+        // NUEVA ARQUITECTURA: EXPORTACIÓN NATIVA UNIVERSAL
         // ==========================================
-        async function uploadToDrive(base64Data, filename, mimeType) {
-            showToast('Subiendo archivo a Drive (Carpeta REPORTES)...', 'info');
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Evita bloqueos CORS de preflight
-                    body: JSON.stringify({ action: 'upload', base64: base64Data, filename: filename, mimeType: mimeType })
-                });
-                const result = await response.json();
-                
-                if (result.status === 'éxito') { 
-                    showToast('¡Archivo guardado en Drive exitosamente!', 'success'); 
-                    return true;
-                } else { 
-                    showToast('Error Drive: ' + (result.mensaje || 'Revisa el Apps Script'), 'error'); 
-                    return false;
-                }
-            } catch (err) {
-                console.error(err); 
-                showToast('Fallo de red o permisos. Descargando localmente...', 'error');
-                return false; // Retorna falso para activar el Fallback (Descarga al celular/PC)
-            }
+        
+        // Función auxiliar para forzar la descarga clásica si la función nativa falla
+        function forceClassicDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a'); 
+            link.href = url; 
+            link.download = filename;
+            document.body.appendChild(link); 
+            link.click(); 
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast('Descarga local completada', 'success');
         }
 
+        // CAPTURAR PNG Y COMPARTIR NATIVAMENTE
         document.getElementById('btn-capture').addEventListener('click', async () => {
             if (!state.pdfDoc) return null;
             showToast('Generando PNG de alta calidad...', 'info');
@@ -628,19 +624,33 @@
                 const canvas = await html2canvas(DOM.wrapper, { scale: 1, useCORS: true, backgroundColor: '#ffffff' });
                 state.zoom = currentZoom; updateZoomUI(); 
                 
-                const base64Img = canvas.toDataURL('image/png');
-                
-                // Intenta subir a Drive. Si falla, activa la descarga al dispositivo.
-                const success = await uploadToDrive(base64Img, `Snapshot_VDC_${Date.now()}.png`, 'image/png');
-                if (!success) {
-                    const link = document.createElement('a'); 
-                    link.download = `Snapshot_VDC_${Date.now()}.png`; 
-                    link.href = base64Img; 
-                    link.click();
-                }
+                canvas.toBlob(async (blob) => {
+                    const filename = `Snapshot_VDC_${Date.now()}.png`;
+                    const file = new File([blob], filename, { type: 'image/png' });
+                    
+                    // Si el dispositivo soporta el menú de compartir nativo (Celulares/Tablets)
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({
+                                files: [file],
+                                title: 'Captura de Plano VDC',
+                                text: 'Adjunto captura de revisión.'
+                            });
+                            showToast('Plano compartido exitosamente', 'success');
+                        } catch (err) {
+                            // Si el usuario cancela el menú de compartir, lo descargamos
+                            if (err.name !== 'AbortError') forceClassicDownload(blob, filename);
+                        }
+                    } else {
+                        // En PC de escritorio, descargamos directamente a la carpeta "Descargas"
+                        forceClassicDownload(blob, filename);
+                    }
+                }, 'image/png');
+
             } catch (err) { state.zoom = currentZoom; updateZoomUI(); showToast('Error en exportación', 'error'); }
         });
 
+        // GENERAR REPORTE PDF Y COMPARTIR NATIVAMENTE
         document.getElementById('btn-share').addEventListener('click', async () => {
             if (!state.pdfDoc) { showToast('No hay documento abierto para exportar', 'error'); return; }
             showToast('Maquetando Reporte PDF. Esto puede tardar...', 'info');
@@ -704,24 +714,26 @@
                         }
                     }
 
-                    // Convertir el PDF a Base64
-                    const pdfBase64 = pdf.output('datauristring');
-                    const pdfBlob = pdf.output('blob'); // Respaldo Local
+                    const pdfBlob = pdf.output('blob');
+                    const filename = `Reporte_Oficial_${Date.now()}.pdf`;
+                    const file = new File([pdfBlob], filename, { type: 'application/pdf' });
                     
-                    // Intenta subir a Drive
-                    const success = await uploadToDrive(pdfBase64, `Reporte_Oficial_${Date.now()}.pdf`, 'application/pdf');
-                    
-                    // FALLBACK: Si Drive falla o bloquea la subida por internet inestable, descargarlo al celular/PC
-                    if (!success) {
-                        const url = URL.createObjectURL(pdfBlob);
-                        const link = document.createElement('a'); 
-                        link.href = url; 
-                        link.download = `Reporte_Oficial_${Date.now()}.pdf`;
-                        document.body.appendChild(link); 
-                        link.click(); 
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-                        showToast('Descarga local de respaldo completada', 'success');
+                    // Si el dispositivo soporta el menú de compartir nativo (Celulares/Tablets)
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({
+                                files: [file],
+                                title: 'Reporte VDC',
+                                text: 'Adjunto matriz de hallazgos en formato PDF.'
+                            });
+                            showToast('Reporte compartido exitosamente', 'success');
+                        } catch (err) {
+                            // Si el usuario cancela el menú de compartir, lo descargamos
+                            if (err.name !== 'AbortError') forceClassicDownload(pdfBlob, filename);
+                        }
+                    } else {
+                        // En PC de escritorio, descargamos directamente a la carpeta "Descargas"
+                        forceClassicDownload(pdfBlob, filename);
                     }
 
                 } catch (err) { showToast('Error crítico generando el Reporte PDF', 'error'); }
