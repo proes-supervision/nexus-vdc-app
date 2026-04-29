@@ -223,7 +223,6 @@
                         el.innerHTML = `<i class="fas fa-file-pdf text-red-400/80 text-xl group-hover:text-red-400 transition-colors"></i><div class="overflow-hidden w-full"><h4 class="text-[11px] font-semibold text-slate-300 truncate group-hover:text-white transition-colors" title="${file.name}">${file.name}</h4><p class="text-[9px] text-slate-500 mt-0.5">${file.date} • ${file.size}</p></div>`;
                         
                         el.addEventListener('click', () => { 
-                            // Solución CORS: Pasar por la API en vez de directo a Drive
                             const pdfProxyUrl = `${API_URL}?action=download&id=${file.id}`;
                             loadPDF(pdfProxyUrl, file.name); 
                             if(window.innerWidth < 768) toggleSidebar(); 
@@ -253,7 +252,6 @@
                 resetCanvasState(); 
                 
                 let finalSource = source;
-                // Si viene del Drive, el Apps Script nos devuelve el Base64 (Bypass CORS)
                 if (typeof source === 'string' && source.includes('action=download')) {
                     DOM.loading.querySelector('p').textContent = 'Descargando seguro desde Drive...';
                     const res = await fetch(source);
@@ -332,8 +330,11 @@
                     drawCtx.strokeStyle = 'rgba(239, 68, 68, 0.8)'; drawCtx.lineWidth = 3; drawCtx.lineCap = 'round'; drawCtx.lineJoin = 'round'; drawCtx.stroke();
                 } else if (action.type === 'pin') {
                     const pd = action.data;
-                    drawCtx.beginPath(); drawCtx.arc(pd.x, pd.y, 14, 0, Math.PI * 2); drawCtx.fillStyle = 'rgba(217, 70, 239, 0.2)'; drawCtx.fill();
-                    drawCtx.beginPath(); drawCtx.arc(pd.x, pd.y, 6, 0, Math.PI * 2); drawCtx.fillStyle = '#d946ef'; drawCtx.fill(); drawCtx.lineWidth = 2; drawCtx.strokeStyle = '#ffffff'; drawCtx.stroke();
+                    // Punto Central Notorio y Más Grande
+                    drawCtx.beginPath(); drawCtx.arc(pd.x, pd.y, 24, 0, Math.PI * 2); drawCtx.fillStyle = 'rgba(217, 70, 239, 0.3)'; drawCtx.fill();
+                    drawCtx.beginPath(); drawCtx.arc(pd.x, pd.y, 10, 0, Math.PI * 2); drawCtx.fillStyle = '#d946ef'; drawCtx.fill(); 
+                    drawCtx.lineWidth = 3; drawCtx.strokeStyle = '#ffffff'; drawCtx.stroke();
+                    drawCtx.beginPath(); drawCtx.arc(pd.x, pd.y, 2.5, 0, Math.PI * 2); drawCtx.fillStyle = '#ffffff'; drawCtx.fill();
                 } else if (action.type === 'cloud') {
                     const cd = action.data;
                     drawCloudPath(drawCtx, cd.x, cd.y, cd.w, cd.h);
@@ -390,13 +391,11 @@
         });
         DOM.btnRemoveImage.addEventListener('click', () => { state.pendingPinImage = null; DOM.noteImageInput.value = ''; DOM.noteImagePreviewContainer.classList.add('hidden'); });
 
-        // Posicionador Seguro para Móvil
         function positionTooltip(clientX, clientY) {
-            const tooltipWidth = 280; // aprox
-            const tooltipHeight = 150; // aprox
+            const tooltipWidth = 280; 
+            const tooltipHeight = 150; 
             let leftPos = clientX + 15; let topPos = clientY + 15;
             
-            // Colisiones de pantalla (Mantiene el cuadro siempre visible)
             if (leftPos + tooltipWidth > window.innerWidth) leftPos = window.innerWidth - tooltipWidth - 20;
             if (leftPos < 10) leftPos = 10;
             if (topPos + tooltipHeight > window.innerHeight) topPos = window.innerHeight - tooltipHeight - 40;
@@ -434,12 +433,11 @@
                 return;
             }
 
-            // LÓGICA DE INSPECCIÓN TÁCTIL Y CLIC NORMAL
             let tappedItem = null;
             for (let action of state.actions) {
                 if (action.type === 'pin') {
                     const dx = cData.x - action.data.x; const dy = cData.y - action.data.y;
-                    if (Math.sqrt(dx * dx + dy * dy) < 40) { tappedItem = action; break; } // Radio amplio para móvil
+                    if (Math.sqrt(dx * dx + dy * dy) < 40) { tappedItem = action; break; } 
                 } else if (action.type === 'cloud') {
                     const cloud = action.data;
                     if (cData.x >= cloud.x && cData.x <= cloud.x + cloud.w && cData.y >= cloud.y && cData.y <= cloud.y + cloud.h) {
@@ -492,7 +490,6 @@
                 return;
             }
 
-            // Hover solo en PC
             if (e.type === 'touchmove') return;
 
             let hoveringItem = null;
@@ -571,13 +568,25 @@
                 if ((nota !== "" || state.pendingPinImage) && state.pendingData) {
                     state.actions.push({ type: 'pin', data: { x: state.pendingData.x, y: state.pendingData.y, text: nota, image: state.pendingPinImage } });
                     redrawCanvas(); showToast('Hallazgo registrado', 'success');
-                    fetch(API_URL, { method: 'POST', body: JSON.stringify({ tipo: 'Pin', x: state.pendingData.x, y: state.pendingData.y, texto: nota }) });
+                    
+                    fetch(API_URL, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ tipo: 'Pin', x: state.pendingData.x, y: state.pendingData.y, texto: nota }) 
+                    }).catch(e => console.error("Error Sheets:", e));
+
                 } else { showToast('Requiere descripción o evidencia', 'error'); return; }
             } else if (state.currentAction === 'cloud') {
                 if (nota !== "" && state.pendingData) {
                     state.actions.push({ type: 'cloud', data: { x: state.pendingData.x, y: state.pendingData.y, w: state.pendingData.w, h: state.pendingData.h, text: nota } });
                     redrawCanvas(); showToast('Nube validada', 'success');
-                    fetch(API_URL, { method: 'POST', body: JSON.stringify({ tipo: 'Nube', x: state.pendingData.x, y: state.pendingData.y, texto: nota }) });
+                    
+                    fetch(API_URL, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ tipo: 'Nube', x: state.pendingData.x, y: state.pendingData.y, texto: nota }) 
+                    }).catch(e => console.error("Error Sheets:", e));
+
                 } else { drawCtx.putImageData(state.canvasSnapshot, 0, 0); showToast('Nube cancelada: Falta descripción', 'error'); }
             }
             DOM.noteModal.classList.add('hidden'); state.pendingData = null; state.pendingPinImage = null; state.currentAction = null;
@@ -587,17 +596,26 @@
         // SUBIDA A GOOGLE DRIVE "REPORTES" DIRECTA
         // ==========================================
         async function uploadToDrive(base64Data, filename, mimeType) {
-            showToast('Subiendo archivo a Google Drive (Carpeta REPORTES)...', 'info');
+            showToast('Subiendo archivo a Drive (Carpeta REPORTES)...', 'info');
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Evita bloqueos CORS de preflight
                     body: JSON.stringify({ action: 'upload', base64: base64Data, filename: filename, mimeType: mimeType })
                 });
                 const result = await response.json();
-                if (result.status === 'éxito') { showToast('¡Archivo guardado en Drive existosamente!', 'success'); } 
-                else { showToast('Error al guardar en Drive', 'error'); }
+                
+                if (result.status === 'éxito') { 
+                    showToast('¡Archivo guardado en Drive exitosamente!', 'success'); 
+                    return true;
+                } else { 
+                    showToast('Error Drive: ' + (result.mensaje || 'Revisa el Apps Script'), 'error'); 
+                    return false;
+                }
             } catch (err) {
-                console.error(err); showToast('Error de red al subir a Drive', 'error');
+                console.error(err); 
+                showToast('Fallo de red o permisos. Descargando localmente...', 'error');
+                return false; // Retorna falso para activar el Fallback (Descarga al celular/PC)
             }
         }
 
@@ -610,9 +628,16 @@
                 const canvas = await html2canvas(DOM.wrapper, { scale: 1, useCORS: true, backgroundColor: '#ffffff' });
                 state.zoom = currentZoom; updateZoomUI(); 
                 
-                // Convertir y subir directamente a Drive
                 const base64Img = canvas.toDataURL('image/png');
-                await uploadToDrive(base64Img, `Snapshot_VDC_${Date.now()}.png`, 'image/png');
+                
+                // Intenta subir a Drive. Si falla, activa la descarga al dispositivo.
+                const success = await uploadToDrive(base64Img, `Snapshot_VDC_${Date.now()}.png`, 'image/png');
+                if (!success) {
+                    const link = document.createElement('a'); 
+                    link.download = `Snapshot_VDC_${Date.now()}.png`; 
+                    link.href = base64Img; 
+                    link.click();
+                }
             } catch (err) { state.zoom = currentZoom; updateZoomUI(); showToast('Error en exportación', 'error'); }
         });
 
@@ -679,9 +704,25 @@
                         }
                     }
 
-                    // Convertir el PDF a Base64 y subirlo directo a Drive
+                    // Convertir el PDF a Base64
                     const pdfBase64 = pdf.output('datauristring');
-                    await uploadToDrive(pdfBase64, `Reporte_Oficial_${Date.now()}.pdf`, 'application/pdf');
+                    const pdfBlob = pdf.output('blob'); // Respaldo Local
+                    
+                    // Intenta subir a Drive
+                    const success = await uploadToDrive(pdfBase64, `Reporte_Oficial_${Date.now()}.pdf`, 'application/pdf');
+                    
+                    // FALLBACK: Si Drive falla o bloquea la subida por internet inestable, descargarlo al celular/PC
+                    if (!success) {
+                        const url = URL.createObjectURL(pdfBlob);
+                        const link = document.createElement('a'); 
+                        link.href = url; 
+                        link.download = `Reporte_Oficial_${Date.now()}.pdf`;
+                        document.body.appendChild(link); 
+                        link.click(); 
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                        showToast('Descarga local de respaldo completada', 'success');
+                    }
 
                 } catch (err) { showToast('Error crítico generando el Reporte PDF', 'error'); }
             }, 50); 
