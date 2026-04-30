@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Plataforma de Inspección VDC - Enterprise</title>
+    <title>Nexus VDC - Control de Obra</title>
     <!-- Tailwind CSS para UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome para Íconos -->
@@ -35,14 +35,26 @@
         <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
             <div class="flex items-center space-x-3">
                 <div class="bg-indigo-600/20 p-2 rounded-lg"><i class="fas fa-layer-group text-indigo-400 text-xl"></i></div>
-                <div><h2 class="font-bold text-slate-100 tracking-wide text-sm uppercase">Nexus VDC</h2><p class="text-[10px] text-slate-500 font-medium tracking-wider">Módulo de Inspección</p></div>
+                <div><h2 class="font-bold text-slate-100 tracking-wide text-sm uppercase">Nexus VDC</h2><p class="text-[10px] text-slate-500 font-medium tracking-wider">Trazabilidad Total</p></div>
             </div>
             <button id="btn-close-sidebar" class="md:hidden text-slate-400 hover:text-white transition p-2"><i class="fas fa-times"></i></button>
         </div>
         
+        <!-- SELECCIÓN DE USUARIO -->
+        <div class="p-5 border-b border-slate-800 bg-slate-800/30">
+            <label class="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">Personal Identificado</label>
+            <select id="user-select" class="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-md p-2.5 focus:border-indigo-500 outline-none transition-colors cursor-pointer">
+                <option value="">-- Seleccione su Identidad --</option>
+                <option value="Zacarias Ortega">Zacarias Ortega</option>
+                <option value="Equipo de Supervision">Equipo de Supervisión</option>
+                <option value="Equipo de Fiscalizacion de Obra">Equipo de Fiscalización de Obra</option>
+                <option value="Fiscal de Seguimiento">Fiscal de Seguimiento</option>
+            </select>
+        </div>
+
         <div class="p-5 border-b border-slate-800 space-y-4">
             <button id="btn-sync-drive" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-4 rounded border border-indigo-500/50 transition-colors flex items-center justify-center space-x-2 text-sm shadow-[0_0_15px_rgba(79,70,229,0.15)]">
-                <i class="fab fa-google-drive"></i><span>Conectar Repositorio</span>
+                <i class="fab fa-google-drive"></i><span>Sincronizar Planos</span>
             </button>
             <div>
                 <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Archivo Local</p>
@@ -57,7 +69,7 @@
         <div class="flex-1 overflow-y-auto p-3 space-y-2" id="drive-file-list">
             <div class="flex flex-col items-center justify-center h-full text-slate-600">
                 <i class="fas fa-folder-open text-3xl mb-3 opacity-50"></i>
-                <p class="text-xs text-center px-4">Directorio vacío.<br>Sincronice o cargue un documento.</p>
+                <p class="text-xs text-center px-4">Directorio vacío.<br>Identifíquese y sincronice.</p>
             </div>
         </div>
     </aside>
@@ -70,7 +82,7 @@
                     <i class="fas fa-bars"></i>
                 </button>
                 <i class="fas fa-file-pdf text-slate-500 hidden md:inline-block"></i>
-                <h1 id="document-title" class="text-sm font-medium text-slate-200 truncate">Ningún documento activo</h1>
+                <h1 id="document-title" class="text-sm font-medium text-slate-200 truncate">Nexus VDC - Enterprise</h1>
             </div>
 
             <div class="flex items-center justify-center w-full md:w-auto bg-slate-950/50 p-1 rounded-md border border-slate-800 shadow-inner order-3 md:order-2 overflow-x-auto no-scrollbar mx-auto">
@@ -78,7 +90,7 @@
                 <span id="zoom-level" class="text-xs font-semibold w-12 text-center text-slate-300">100%</span>
                 <button id="btn-zoom-in" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded transition" title="Acercar"><i class="fas fa-plus text-xs"></i></button>
                 <div class="w-px h-5 bg-slate-700 mx-2"></div>
-                <button id="btn-draw" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition" title="Lápiz de Trazo Libre"><i class="fas fa-pen text-sm"></i></button>
+                <button id="btn-draw" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition" title="Lápiz Libre"><i class="fas fa-pen text-sm"></i></button>
                 <button id="btn-cloud" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded transition" title="Nube de Revisión"><i class="fas fa-cloud text-sm"></i></button>
                 <button id="btn-pin" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-fuchsia-400 hover:bg-slate-800 rounded transition" title="Pin de Observación"><i class="fas fa-map-pin text-sm"></i></button>
                 <button id="btn-undo" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded transition ml-1" title="Deshacer"><i class="fas fa-undo text-sm"></i></button>
@@ -86,10 +98,10 @@
 
             <div class="flex items-center justify-end w-full md:w-1/3 space-x-2 order-2 md:order-3">
                 <button id="btn-capture" class="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition flex items-center space-x-2">
-                    <i class="fas fa-image"></i> <span class="hidden sm:inline">Capturar Plano</span>
+                    <i class="fas fa-share-alt"></i> <span class="hidden sm:inline">Compartir Captura</span>
                 </button>
                 <button id="btn-share" class="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded transition flex items-center space-x-2 shadow-lg">
-                    <i class="fas fa-share-nodes"></i> <span class="hidden sm:inline">Exportar / Compartir</span>
+                    <i class="fas fa-file-pdf"></i> <span class="hidden sm:inline">Compartir Reporte PDF</span>
                 </button>
             </div>
         </header>
@@ -97,7 +109,7 @@
         <div id="viewer-container" class="flex-1 overflow-auto p-4 md:p-10 relative">
             <div id="loading-indicator" class="hidden flex-col items-center justify-center h-full mt-20">
                 <i class="fas fa-circle-notch fa-spin text-3xl text-indigo-500 mb-4"></i>
-                <p class="text-slate-400 text-sm font-medium tracking-wide">Renderizando documento...</p>
+                <p class="text-slate-400 text-sm font-medium tracking-wide">Procesando plano...</p>
             </div>
             <div id="pdf-wrapper" class="pdf-wrapper bg-white hidden">
                 <canvas id="pdf-render"></canvas>
@@ -106,14 +118,14 @@
             <div id="empty-state" class="flex flex-col items-center justify-center h-full text-slate-600 mt-20">
                 <i class="fas fa-vector-square text-6xl mb-6 opacity-20"></i>
                 <h3 class="text-lg font-medium text-slate-400">Área de Trabajo VDC</h3>
-                <p class="text-xs mt-2 text-slate-500 text-center">Seleccione un documento del panel lateral<br>para iniciar la revisión técnica.</p>
+                <p class="text-xs mt-2 text-slate-500 text-center">Seleccione su usuario e inicie la revisión técnica.</p>
             </div>
         </div>
 
         <footer class="bg-slate-900 border-t border-slate-800 py-2.5 px-6 flex flex-col md:flex-row justify-between items-center text-[11px] text-slate-500 flex-shrink-0 z-10">
             <div class="flex items-center space-x-2 mb-2 md:mb-0">
                 <i class="fas fa-shield-alt text-indigo-500/70"></i>
-                <span class="font-medium">Entorno Seguro • <span class="text-slate-400">v2.5 Enterprise</span></span>
+                <span class="font-medium">Entorno Seguro • <span id="active-user-footer" class="text-indigo-400 italic">Sin Identificar</span></span>
             </div>
             <div class="flex items-center space-x-4 text-center md:text-left">
                 <span>Proyecto: <strong class="text-slate-300">Construcción y Equipamiento Hospital Isaias</strong></span>
@@ -124,17 +136,20 @@
 
     </main>
 
-    <!-- Tooltip con lógica de Colisión Segura para Móviles -->
+    <!-- TOOLTIP EMERGENTE RESTAURADO Y FUNCIONAL -->
     <div id="hover-image-tooltip" class="fixed hidden z-40 bg-slate-800 border border-slate-600 rounded shadow-[0_10px_30px_rgba(0,0,0,0.8)] p-3 pointer-events-none transition-opacity duration-150 min-w-[200px] max-w-[280px]">
-        <div id="hover-header" class="flex items-center space-x-2 mb-2 border-b border-slate-700 pb-2">
-            <i id="hover-icon" class="fas fa-info-circle text-xs"></i> 
-            <span id="hover-title-text" class="text-xs font-bold uppercase tracking-wide">Detalle</span>
+        <div id="hover-header" class="flex items-center justify-between space-x-2 mb-2 border-b border-slate-700 pb-2">
+            <div class="flex items-center space-x-2">
+                <i id="hover-icon" class="fas fa-info-circle text-xs"></i> 
+                <span id="hover-title-text" class="text-xs font-bold uppercase tracking-wide">Detalle</span>
+            </div>
+            <span id="hover-user" class="text-[9px] bg-slate-900 text-indigo-400 px-1.5 py-0.5 rounded italic whitespace-nowrap overflow-hidden text-ellipsis max-w-[100px]"></span>
         </div>
         <p id="hover-text" class="text-xs font-normal text-slate-300 mb-2 hidden leading-relaxed"></p>
         <img id="hover-image-img" src="" class="max-w-full max-h-[200px] object-cover rounded hidden border border-slate-700" alt="Evidencia">
     </div>
 
-    <!-- Modal de Edición -->
+    <!-- MODAL DE EDICIÓN -->
     <div id="note-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-center justify-center transition-opacity">
         <div id="modal-container" class="bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-6 w-[400px] max-w-[90%] mx-auto transform transition-all relative overflow-hidden">
             <div id="modal-color-bar" class="absolute top-0 left-0 w-full h-1"></div>
@@ -173,11 +188,11 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        // URL DE TU APPS SCRIPT OFICIAL
+        // URL DE TU APPS SCRIPT
         const API_URL = 'https://script.google.com/macros/s/AKfycbw0tTXzjQSE9CPQukU6obQgwH2LJLigiLCGK9lChdsTiYdd5HWyo7sihAm3os9qEPVF/exec';
 
         const state = {
-            pdfDoc: null, pageNum: 1, zoom: 1.0, baseWidth: 0, baseHeight: 0, 
+            pdfDoc: null, pageNum: 1, zoom: 1.0, baseWidth: 0, baseHeight: 0, currentUser: "",
             isDrawing: false, drawModeActive: false, pinModeActive: false, cloudModeActive: false,
             isDrawingCloud: false, lastX: 0, lastY: 0, startX: 0, startY: 0,
             canvasSnapshot: null, currentAction: null, pendingData: null, pendingPinImage: null, 
@@ -185,6 +200,8 @@
         };
 
         const DOM = {
+            userSelect: document.getElementById('user-select'),
+            activeUserFooter: document.getElementById('active-user-footer'),
             wrapper: document.getElementById('pdf-wrapper'), pdfCanvas: document.getElementById('pdf-render'), drawCanvas: document.getElementById('drawing-layer'),
             viewerContainer: document.getElementById('viewer-container'), zoomLevelTxt: document.getElementById('zoom-level'), loading: document.getElementById('loading-indicator'),
             emptyState: document.getElementById('empty-state'), docTitle: document.getElementById('document-title'),
@@ -194,19 +211,31 @@
             imageUploadSection: document.getElementById('image-upload-section'), noteImageInput: document.getElementById('note-image-input'), noteImagePreviewContainer: document.getElementById('note-image-preview-container'),
             noteImagePreview: document.getElementById('note-image-preview'), btnRemoveImage: document.getElementById('btn-remove-image'),
             hoverTooltip: document.getElementById('hover-image-tooltip'), hoverHeader: document.getElementById('hover-header'), hoverTitleText: document.getElementById('hover-title-text'),
-            hoverIcon: document.getElementById('hover-icon'), hoverText: document.getElementById('hover-text'), hoverImg: document.getElementById('hover-image-img'),
+            hoverUser: document.getElementById('hover-user'), hoverIcon: document.getElementById('hover-icon'), hoverText: document.getElementById('hover-text'), hoverImg: document.getElementById('hover-image-img'),
             sidebar: document.getElementById('sidebar'), mobileOverlay: document.getElementById('mobile-overlay'), btnOpenSidebar: document.getElementById('btn-open-sidebar'), btnCloseSidebar: document.getElementById('btn-close-sidebar')
         };
 
         const pdfCtx = DOM.pdfCanvas.getContext('2d'); const drawCtx = DOM.drawCanvas.getContext('2d');
 
+        // Control de Identidad
+        DOM.userSelect.addEventListener('change', (e) => {
+            state.currentUser = e.target.value;
+            DOM.activeUserFooter.textContent = state.currentUser || "Sin Identificar";
+        });
+
+        function validateUser() {
+            if(!state.currentUser) { showToast("Debe identificar su usuario en el panel izquierdo", "error"); return false; }
+            return true;
+        }
+
         function toggleSidebar() { DOM.sidebar.classList.toggle('-translate-x-full'); DOM.mobileOverlay.classList.toggle('hidden'); }
         DOM.btnOpenSidebar.addEventListener('click', toggleSidebar); DOM.btnCloseSidebar.addEventListener('click', toggleSidebar); DOM.mobileOverlay.addEventListener('click', toggleSidebar);
 
         // ==========================================
-        // MÓDULO 1: CONEXIÓN REAL CON GOOGLE DRIVE
+        // CARGA DE PLANOS
         // ==========================================
         document.getElementById('btn-sync-drive').addEventListener('click', () => {
+            if(!validateUser()) return;
             const listContainer = document.getElementById('drive-file-list');
             listContainer.innerHTML = '<div class="flex flex-col items-center justify-center mt-10"><i class="fas fa-circle-notch fa-spin text-indigo-500 text-2xl mb-2"></i><p class="text-[10px] text-slate-500 uppercase tracking-widest">Escaneando Drive...</p></div>';
             
@@ -250,17 +279,13 @@
             DOM.docTitle.textContent = title;
             try {
                 resetCanvasState(); 
-                
                 let finalSource = source;
                 if (typeof source === 'string' && source.includes('action=download')) {
                     DOM.loading.querySelector('p').textContent = 'Descargando desde Drive...';
                     const res = await fetch(source, { redirect: 'follow' });
                     const textData = await res.text();
-                    
                     let json;
-                    try { json = JSON.parse(textData); } 
-                    catch (e) { throw new Error('Error Autenticación: Debes configurar el Apps Script para "Cualquier persona"'); }
-                    
+                    try { json = JSON.parse(textData); } catch (e) { throw new Error('Error Autenticación Scripts'); }
                     if(json.error) throw new Error(json.error);
                     const binaryString = window.atob(json.base64);
                     const bytes = new Uint8Array(binaryString.length);
@@ -272,8 +297,7 @@
                 const loadingTask = typeof finalSource === 'string' ? pdfjsLib.getDocument(finalSource) : pdfjsLib.getDocument({ data: finalSource });
                 state.pdfDoc = await loadingTask.promise;
                 await renderPage(state.pageNum);
-                DOM.loading.style.display = 'none';
-                DOM.wrapper.classList.remove('hidden');
+                DOM.loading.style.display = 'none'; DOM.wrapper.classList.remove('hidden');
             } catch (error) {
                 console.error(error);
                 DOM.loading.style.display = 'none'; DOM.emptyState.classList.remove('hidden');
@@ -371,7 +395,6 @@
                 const bumpCount = Math.max(1, Math.floor(distance / segmentLength));
                 const stepX = dx / bumpCount; const stepY = dy / bumpCount;
                 const nx = dy / distance; const ny = -dx / distance;
-
                 for (let i = 0; i < bumpCount; i++) {
                     const p1x = startX + stepX * i; const p1y = startY + stepY * i;
                     const p2x = startX + stepX * (i + 1); const p2y = startY + stepY * (i + 1);
@@ -389,27 +412,31 @@
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (event) => { state.pendingPinImage = event.target.result; DOM.noteImagePreview.src = state.pendingPinImage; DOM.noteImagePreviewContainer.classList.remove('hidden'); };
+                reader.onload = (event) => { 
+                    state.pendingPinImage = event.target.result; 
+                    DOM.noteImagePreview.src = state.pendingPinImage; 
+                    DOM.noteImagePreviewContainer.classList.remove('hidden'); 
+                };
                 reader.readAsDataURL(file);
             }
         });
-        DOM.btnRemoveImage.addEventListener('click', () => { state.pendingPinImage = null; DOM.noteImageInput.value = ''; DOM.noteImagePreviewContainer.classList.add('hidden'); });
+        DOM.btnRemoveImage.addEventListener('click', () => { 
+            state.pendingPinImage = null; DOM.noteImageInput.value = ''; 
+            DOM.noteImagePreviewContainer.classList.add('hidden'); 
+        });
 
         function positionTooltip(clientX, clientY) {
-            const tooltipWidth = 280; 
-            const tooltipHeight = 150; 
+            const tooltipWidth = 280; const tooltipHeight = 150; 
             let leftPos = clientX + 15; let topPos = clientY + 15;
-            
             if (leftPos + tooltipWidth > window.innerWidth) leftPos = window.innerWidth - tooltipWidth - 20;
             if (leftPos < 10) leftPos = 10;
             if (topPos + tooltipHeight > window.innerHeight) topPos = window.innerHeight - tooltipHeight - 40;
             if (topPos < 10) topPos = 10;
-
-            DOM.hoverTooltip.style.left = leftPos + 'px';
-            DOM.hoverTooltip.style.top = topPos + 'px';
+            DOM.hoverTooltip.style.left = leftPos + 'px'; DOM.hoverTooltip.style.top = topPos + 'px';
         }
 
         const handlePointerDown = (e) => {
+            if (!validateUser()) return; 
             const cData = getCoordinates(e);
             
             if (state.cloudModeActive) {
@@ -451,16 +478,17 @@
             }
 
             if (tappedItem) {
+                DOM.hoverUser.textContent = tappedItem.user || "Usuario Desconocido";
                 if (tappedItem.type === 'pin') {
-                    DOM.hoverHeader.className = "flex items-center space-x-2 mb-2 border-b border-slate-700 pb-2 text-fuchsia-400";
+                    DOM.hoverHeader.className = "flex items-center justify-between space-x-2 mb-2 border-b border-slate-700 pb-2 text-fuchsia-400";
                     DOM.hoverIcon.className = "fas fa-map-pin text-xs"; DOM.hoverTitleText.textContent = "HALLAZGO EN PUNTO";
-                    if(tappedItem.data.image) { DOM.hoverImg.src = tappedItem.data.image; DOM.hoverImg.classList.remove('hidden'); } else { DOM.hoverImg.classList.add('hidden'); }
+                    if(tappedItem.image) { DOM.hoverImg.src = tappedItem.image; DOM.hoverImg.classList.remove('hidden'); } else { DOM.hoverImg.classList.add('hidden'); }
                 } else if (tappedItem.type === 'cloud') {
-                    DOM.hoverHeader.className = "flex items-center space-x-2 mb-2 border-b border-slate-700 pb-2 text-orange-400";
+                    DOM.hoverHeader.className = "flex items-center justify-between space-x-2 mb-2 border-b border-slate-700 pb-2 text-orange-400";
                     DOM.hoverIcon.className = "fas fa-cloud text-xs"; DOM.hoverTitleText.textContent = "ÁREA DE REVISIÓN";
                     DOM.hoverImg.classList.add('hidden');
                 }
-                if (tappedItem.data.text) { DOM.hoverText.textContent = tappedItem.data.text; DOM.hoverText.classList.remove('hidden'); } else { DOM.hoverText.classList.add('hidden'); }
+                if (tappedItem.text) { DOM.hoverText.textContent = tappedItem.text; DOM.hoverText.classList.remove('hidden'); } else { DOM.hoverText.classList.add('hidden'); }
 
                 positionTooltip(cData.clientX, cData.clientY);
                 DOM.hoverTooltip.classList.remove('hidden');
@@ -494,7 +522,7 @@
                 return;
             }
 
-            if (e.type === 'touchmove') return;
+            if (e.type === 'touchmove') return; 
 
             let hoveringItem = null;
             if (!state.isDrawing && !state.isDrawingCloud && !state.drawModeActive && !state.pinModeActive && !state.cloudModeActive) {
@@ -510,16 +538,17 @@
             }
 
             if (hoveringItem) {
+                DOM.hoverUser.textContent = hoveringItem.user || "Usuario Desconocido";
                 if (hoveringItem.type === 'pin') {
-                    DOM.hoverHeader.className = "flex items-center space-x-2 mb-2 border-b border-slate-700 pb-2 text-fuchsia-400";
+                    DOM.hoverHeader.className = "flex items-center justify-between space-x-2 mb-2 border-b border-slate-700 pb-2 text-fuchsia-400";
                     DOM.hoverIcon.className = "fas fa-map-pin text-xs"; DOM.hoverTitleText.textContent = "HALLAZGO EN PUNTO";
-                    if(hoveringItem.data.image) { DOM.hoverImg.src = hoveringItem.data.image; DOM.hoverImg.classList.remove('hidden'); } else { DOM.hoverImg.classList.add('hidden'); }
+                    if(hoveringItem.image) { DOM.hoverImg.src = hoveringItem.image; DOM.hoverImg.classList.remove('hidden'); } else { DOM.hoverImg.classList.add('hidden'); }
                 } else if (hoveringItem.type === 'cloud') {
-                    DOM.hoverHeader.className = "flex items-center space-x-2 mb-2 border-b border-slate-700 pb-2 text-orange-400";
+                    DOM.hoverHeader.className = "flex items-center justify-between space-x-2 mb-2 border-b border-slate-700 pb-2 text-orange-400";
                     DOM.hoverIcon.className = "fas fa-cloud text-xs"; DOM.hoverTitleText.textContent = "ÁREA DE REVISIÓN";
                     DOM.hoverImg.classList.add('hidden');
                 }
-                if (hoveringItem.data.text) { DOM.hoverText.textContent = hoveringItem.data.text; DOM.hoverText.classList.remove('hidden'); } else { DOM.hoverText.classList.add('hidden'); }
+                if (hoveringItem.text) { DOM.hoverText.textContent = hoveringItem.text; DOM.hoverText.classList.remove('hidden'); } else { DOM.hoverText.classList.add('hidden'); }
 
                 positionTooltip(cData.clientX, cData.clientY);
                 DOM.hoverTooltip.classList.remove('hidden');
@@ -566,31 +595,33 @@
             DOM.noteModal.classList.add('hidden'); state.pendingData = null; state.currentAction = null;
         });
 
-        // ENVÍO DE DATOS A HOJA DE CÁLCULO SEGURO (SE MANTIENE)
+        // ==========================================
+        // GUARDADO CON TRAZABILIDAD (Mantiene el Google Sheet funcional)
+        // ==========================================
         DOM.btnSaveNote.addEventListener('click', () => {
             const nota = DOM.noteInput.value.trim();
             if (state.currentAction === 'pin') {
                 if ((nota !== "" || state.pendingPinImage) && state.pendingData) {
-                    state.actions.push({ type: 'pin', data: { x: state.pendingData.x, y: state.pendingData.y, text: nota, image: state.pendingPinImage } });
-                    redrawCanvas(); showToast('Hallazgo registrado', 'success');
+                    state.actions.push({ type: 'pin', data: { x: state.pendingData.x, y: state.pendingData.y }, text: nota, image: state.pendingPinImage, user: state.currentUser });
+                    redrawCanvas(); showToast('Hallazgo registrado por ' + state.currentUser, 'success');
                     
                     fetch(API_URL, { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ tipo: 'Pin', x: state.pendingData.x, y: state.pendingData.y, texto: nota }) 
-                    }).catch(e => console.error("Error Sheets:", e));
+                        body: JSON.stringify({ tipo: 'Pin', x: state.pendingData.x, y: state.pendingData.y, texto: nota, usuario: state.currentUser }) 
+                    }).catch(e => console.error(e));
 
                 } else { showToast('Requiere descripción o evidencia', 'error'); return; }
             } else if (state.currentAction === 'cloud') {
                 if (nota !== "" && state.pendingData) {
-                    state.actions.push({ type: 'cloud', data: { x: state.pendingData.x, y: state.pendingData.y, w: state.pendingData.w, h: state.pendingData.h, text: nota } });
-                    redrawCanvas(); showToast('Nube validada', 'success');
+                    state.actions.push({ type: 'cloud', data: { x: state.pendingData.x, y: state.pendingData.y, w: state.pendingData.w, h: state.pendingData.h }, text: nota, user: state.currentUser });
+                    redrawCanvas(); showToast('Nube validada por ' + state.currentUser, 'success');
                     
                     fetch(API_URL, { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ tipo: 'Nube', x: state.pendingData.x, y: state.pendingData.y, texto: nota }) 
-                    }).catch(e => console.error("Error Sheets:", e));
+                        body: JSON.stringify({ tipo: 'Nube', x: state.pendingData.x, y: state.pendingData.y, texto: nota, usuario: state.currentUser }) 
+                    }).catch(e => console.error(e));
 
                 } else { drawCtx.putImageData(state.canvasSnapshot, 0, 0); showToast('Nube cancelada: Falta descripción', 'error'); }
             }
@@ -598,51 +629,66 @@
         });
 
         // ==========================================
-        // NUEVA ARQUITECTURA: EXPORTACIÓN NATIVA UNIVERSAL
+        // NUEVA ARQUITECTURA: EXPORTACIÓN NATIVA (WHATSAPP, ARCHIVOS LOCALES, DRIVE MANUAL)
         // ==========================================
         
-        // Función auxiliar para forzar la descarga clásica si la función nativa falla
+        // Helper: Fuerza la descarga si falla la opción nativa de compartir
         function forceClassicDownload(blob, filename) {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a'); 
-            link.href = url; 
-            link.download = filename;
-            document.body.appendChild(link); 
-            link.click(); 
-            document.body.removeChild(link);
+            link.href = url; link.download = filename;
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
             URL.revokeObjectURL(url);
-            showToast('Descarga local completada', 'success');
+            showToast('Archivo guardado localmente', 'success');
         }
 
-        // CAPTURAR PNG Y COMPARTIR NATIVAMENTE
+        // CAPTURAR IMAGEN Y COMPARTIR/GUARDAR NATIVAMENTE
         document.getElementById('btn-capture').addEventListener('click', async () => {
             if (!state.pdfDoc) return null;
-            showToast('Generando PNG de alta calidad...', 'info');
+            if (!validateUser()) return;
+            showToast('Generando Captura de alta calidad...', 'info');
             const currentZoom = state.zoom; state.zoom = 1.0; updateZoomUI();
+            
             try {
                 await new Promise(r => setTimeout(r, 150));
                 const canvas = await html2canvas(DOM.wrapper, { scale: 1, useCORS: true, backgroundColor: '#ffffff' });
                 state.zoom = currentZoom; updateZoomUI(); 
                 
                 canvas.toBlob(async (blob) => {
-                    const filename = `Snapshot_VDC_${Date.now()}.png`;
+                    const filename = `Captura_${state.currentUser.replace(/ /g,'_')}_${Date.now()}.png`;
                     const file = new File([blob], filename, { type: 'image/png' });
                     
-                    // Si el dispositivo soporta el menú de compartir nativo (Celulares/Tablets)
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    // Detectar si es dispositivo móvil
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    
+                    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+                        // En móviles abre menú de WhatsApp, Correo, etc.
                         try {
                             await navigator.share({
                                 files: [file],
-                                title: 'Captura de Plano VDC',
-                                text: 'Adjunto captura de revisión.'
+                                title: 'Captura de Inspección',
+                                text: `Adjunto captura de inspección VDC realizada por ${state.currentUser}.`
                             });
-                            showToast('Plano compartido exitosamente', 'success');
+                            showToast('Compartido exitosamente', 'success');
                         } catch (err) {
-                            // Si el usuario cancela el menú de compartir, lo descargamos
                             if (err.name !== 'AbortError') forceClassicDownload(blob, filename);
                         }
+                    } else if (window.showSaveFilePicker) {
+                        // En PC abre ventana "Guardar Como..." para elegir ruta
+                        try {
+                            const fileHandle = await window.showSaveFilePicker({
+                                suggestedName: filename,
+                                types: [{ description: 'Imagen PNG', accept: { 'image/png': ['.png'] } }]
+                            });
+                            const writable = await fileHandle.createWritable();
+                            await writable.write(blob);
+                            await writable.close();
+                            showToast('Imagen guardada en el equipo', 'success');
+                        } catch (pickerErr) {
+                            if (pickerErr.name !== 'AbortError') forceClassicDownload(blob, filename);
+                        }
                     } else {
-                        // En PC de escritorio, descargamos directamente a la carpeta "Descargas"
+                        // Fallback para navegadores de PC antiguos (Firefox/Safari antiguo)
                         forceClassicDownload(blob, filename);
                     }
                 }, 'image/png');
@@ -650,9 +696,10 @@
             } catch (err) { state.zoom = currentZoom; updateZoomUI(); showToast('Error en exportación', 'error'); }
         });
 
-        // GENERAR REPORTE PDF Y COMPARTIR NATIVAMENTE
+        // EXPORTAR PDF Y COMPARTIR/GUARDAR NATIVAMENTE
         document.getElementById('btn-share').addEventListener('click', async () => {
             if (!state.pdfDoc) { showToast('No hay documento abierto para exportar', 'error'); return; }
+            if (!validateUser()) return;
             showToast('Maquetando Reporte PDF. Esto puede tardar...', 'info');
             
             setTimeout(async () => {
@@ -682,8 +729,9 @@
                         
                         pdf.setFontSize(18); pdf.setFont("helvetica", "bold"); pdf.setTextColor(30, 41, 59); 
                         pdf.text("Matriz de Hallazgos VDC", margin, cursorY); cursorY += 8;
+                        
                         pdf.setFontSize(10); pdf.setFont("helvetica", "normal"); pdf.setTextColor(100, 116, 139); 
-                        pdf.text(`Documento base: ${DOM.docTitle.textContent}  |  Fecha: ${new Date().toLocaleDateString()}`, margin, cursorY); cursorY += 15;
+                        pdf.text(`Inspector: ${state.currentUser}  |  Fecha: ${new Date().toLocaleDateString()}`, margin, cursorY); cursorY += 15;
                         
                         for (let i = 0; i < findings.length; i++) {
                             const item = findings[i];
@@ -693,21 +741,22 @@
                             const tipoTxt = item.type === 'pin' ? 'Inspección de Punto' : 'Inspección de Área (Nube)';
                             if(item.type === 'pin') { pdf.setFillColor(217, 70, 239); } else { pdf.setFillColor(249, 115, 22); }
                             pdf.circle(margin + 2, cursorY - 1, 3, 'F');
-                            pdf.text(`Hallazgo #${i + 1} - ${tipoTxt}`, margin + 8, cursorY); cursorY += 8;
+                            
+                            pdf.text(`Hallazgo #${i + 1} - ${tipoTxt} (Por: ${item.user})`, margin + 8, cursorY); cursorY += 8;
                             
                             pdf.setFontSize(10); pdf.setFont("helvetica", "normal"); pdf.setTextColor(51, 65, 85); 
-                            const textLines = pdf.splitTextToSize(item.data.text || "Sin descripción", contentWidth - 8);
+                            const textLines = pdf.splitTextToSize(item.text || "Sin descripción", contentWidth - 8);
                             pdf.text(textLines, margin + 8, cursorY); cursorY += (textLines.length * 5) + 5;
                             
-                            if (item.data.image) {
+                            if (item.image) {
                                 try {
-                                    const imgProp = pdf.getImageProperties(item.data.image);
+                                    const imgProp = pdf.getImageProperties(item.image);
                                     const iRatio = Math.min(100 / imgProp.width, 70 / imgProp.height);
                                     const iW = imgProp.width * iRatio; const iH = imgProp.height * iRatio;
                                     
                                     if (cursorY + iH > pageHeight - 20) { pdf.addPage('a4', 'portrait'); cursorY = 20; }
                                     pdf.setDrawColor(203, 213, 225); pdf.setLineWidth(0.5); pdf.rect(margin + 8, cursorY, iW, iH);
-                                    pdf.addImage(item.data.image, 'JPEG', margin + 8, cursorY, iW, iH); cursorY += iH + 10;
+                                    pdf.addImage(item.image, 'JPEG', margin + 8, cursorY, iW, iH); cursorY += iH + 10;
                                 } catch(e) {}
                             }
                             pdf.setDrawColor(226, 232, 240); pdf.line(margin, cursorY, margin + contentWidth, cursorY); cursorY += 10;
@@ -715,24 +764,36 @@
                     }
 
                     const pdfBlob = pdf.output('blob');
-                    const filename = `Reporte_Oficial_${Date.now()}.pdf`;
+                    const filename = `Reporte_Oficial_${state.currentUser.replace(/ /g,'_')}_${Date.now()}.pdf`;
                     const file = new File([pdfBlob], filename, { type: 'application/pdf' });
                     
-                    // Si el dispositivo soporta el menú de compartir nativo (Celulares/Tablets)
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    
+                    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
                         try {
                             await navigator.share({
                                 files: [file],
                                 title: 'Reporte VDC',
-                                text: 'Adjunto matriz de hallazgos en formato PDF.'
+                                text: `Adjunto matriz de hallazgos VDC en formato PDF elaborada por ${state.currentUser}.`
                             });
                             showToast('Reporte compartido exitosamente', 'success');
                         } catch (err) {
-                            // Si el usuario cancela el menú de compartir, lo descargamos
                             if (err.name !== 'AbortError') forceClassicDownload(pdfBlob, filename);
                         }
+                    } else if (window.showSaveFilePicker) {
+                        try {
+                            const fileHandle = await window.showSaveFilePicker({
+                                suggestedName: filename,
+                                types: [{ description: 'Reporte PDF', accept: { 'application/pdf': ['.pdf'] } }]
+                            });
+                            const writable = await fileHandle.createWritable();
+                            await writable.write(pdfBlob);
+                            await writable.close();
+                            showToast('Reporte guardado en el equipo', 'success');
+                        } catch (pickerErr) {
+                            if (pickerErr.name !== 'AbortError') forceClassicDownload(pdfBlob, filename);
+                        }
                     } else {
-                        // En PC de escritorio, descargamos directamente a la carpeta "Descargas"
                         forceClassicDownload(pdfBlob, filename);
                     }
 
