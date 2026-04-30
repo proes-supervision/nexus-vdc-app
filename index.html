@@ -46,8 +46,8 @@
             <select id="user-select" class="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-md p-2.5 focus:border-indigo-500 outline-none transition-colors cursor-pointer">
                 <option value="">-- Seleccione su Identidad --</option>
                 <option value="Zacarias Ortega">Zacarias Ortega</option>
-                <option value="Equipo de Supervision">Equipo de Supervisión</option>
-                <option value="Equipo de Fiscalizacion de Obra">Equipo de Fiscalización de Obra</option>
+                <option value="Equipo de Supervision">Equipo de Supervision</option>
+                <option value="Equipo de Fiscalizacion de Obra">Equipo de Fiscalizacion de Obra</option>
                 <option value="Fiscal de Seguimiento">Fiscal de Seguimiento</option>
             </select>
         </div>
@@ -122,15 +122,15 @@
             </div>
         </div>
 
-        <footer class="bg-slate-900 border-t border-slate-800 py-2.5 px-6 flex flex-col md:flex-row justify-between items-center text-[11px] text-slate-500 flex-shrink-0 z-10">
-            <div class="flex items-center space-x-2 mb-2 md:mb-0">
+        <footer class="bg-slate-900 border-t border-slate-800 py-3 px-6 flex flex-col md:flex-row justify-between items-center text-[11px] text-slate-500 flex-shrink-0 z-10 space-y-2 md:space-y-0">
+            <div class="flex items-center space-x-2">
                 <i class="fas fa-shield-alt text-indigo-500/70"></i>
                 <span class="font-medium">Entorno Seguro • <span id="active-user-footer" class="text-indigo-400 italic">Sin Identificar</span></span>
             </div>
-            <div class="flex items-center space-x-4 text-center md:text-left">
+            <div class="flex flex-col md:flex-row items-center md:space-x-4 text-center md:text-left space-y-1 md:space-y-0">
                 <span>Proyecto: <strong class="text-slate-300">Construcción y Equipamiento Hospital Isaias</strong></span>
                 <span class="text-slate-700 hidden md:inline">|</span>
-                <span class="hidden md:inline">Desarrollado por: <strong class="text-indigo-400">Zacarias Ortega - Project Manager</strong></span>
+                <span>Desarrollado por: <strong class="text-indigo-400">Zacarias Ortega - Project Manager</strong></span>
             </div>
         </footer>
 
@@ -175,6 +175,27 @@
             <div class="mt-2 flex justify-end space-x-3">
                 <button id="btn-cancel-note" class="px-4 py-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition text-xs font-medium">Cancelar</button>
                 <button id="btn-save-note" class="px-5 py-2 text-white rounded transition text-xs font-medium shadow-lg">Guardar Registro</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NUEVO: MODAL DE EXPORTACIÓN (COMPARTIR/GUARDAR) -->
+    <div id="export-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-[60] flex items-center justify-center transition-opacity">
+        <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-6 w-[350px] max-w-[90%] mx-auto text-center transform transition-all">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-emerald-500/20 mb-4">
+                <i class="fas fa-check text-xl text-emerald-500"></i>
+            </div>
+            <h3 class="text-base font-semibold text-slate-100 mb-2">¡Documento Generado!</h3>
+            <p class="text-xs text-slate-400 mb-6">El archivo está listo. Elija qué desea hacer con él:</p>
+            
+            <div class="flex flex-col space-y-3">
+                <button id="btn-modal-share" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded text-sm transition shadow-lg flex items-center justify-center">
+                    <i class="fab fa-whatsapp text-lg mr-2"></i> Compartir / Enviar
+                </button>
+                <button id="btn-modal-download" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2.5 rounded text-sm transition border border-slate-700 flex items-center justify-center">
+                    <i class="fas fa-download text-sm mr-2"></i> Guardar en mi Dispositivo
+                </button>
+                <button id="btn-modal-close" class="mt-2 text-slate-500 hover:text-slate-300 text-xs py-2">Cancelar</button>
             </div>
         </div>
     </div>
@@ -629,10 +650,10 @@
         });
 
         // ==========================================
-        // NUEVA ARQUITECTURA: EXPORTACIÓN NATIVA (WHATSAPP, ARCHIVOS LOCALES, DRIVE MANUAL)
+        // NUEVA ARQUITECTURA: EXPORTACIÓN NATIVA CON MODAL INTERACTIVO
         // ==========================================
         
-        // Helper: Fuerza la descarga si falla la opción nativa de compartir
+        // Helper: Fuerza la descarga clásica
         function forceClassicDownload(blob, filename) {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a'); 
@@ -642,65 +663,111 @@
             showToast('Archivo guardado localmente', 'success');
         }
 
-        // CAPTURAR IMAGEN Y COMPARTIR/GUARDAR NATIVAMENTE
+        // LÓGICA DEL MODAL DE EXPORTACIÓN
+        let pendingExportFile = null;
+        let pendingExportBlob = null;
+        let pendingExportFilename = "";
+        
+        const exportModal = document.getElementById('export-modal');
+        
+        function showExportOptions(file, blob, filename) {
+            pendingExportFile = file;
+            pendingExportBlob = blob;
+            pendingExportFilename = filename;
+            
+            const btnShare = document.getElementById('btn-modal-share');
+            // Validar si el dispositivo permite compartir archivos nativamente
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                btnShare.classList.remove('hidden');
+            } else {
+                btnShare.classList.add('hidden');
+            }
+            
+            exportModal.classList.remove('hidden');
+        }
+
+        document.getElementById('btn-modal-close').addEventListener('click', () => {
+            exportModal.classList.add('hidden');
+            pendingExportFile = null; pendingExportBlob = null; pendingExportFilename = "";
+        });
+
+        document.getElementById('btn-modal-share').addEventListener('click', async () => {
+            if (pendingExportFile && navigator.canShare && navigator.canShare({ files: [pendingExportFile] })) {
+                try {
+                    await navigator.share({
+                        files: [pendingExportFile],
+                        title: 'Documento de Inspección VDC',
+                        text: `Adjunto documento de inspección elaborado por ${state.currentUser}.`
+                    });
+                    showToast('Compartido exitosamente', 'success');
+                } catch (err) {
+                    if (err.name !== 'AbortError') showToast('No se pudo compartir', 'error');
+                }
+            }
+            exportModal.classList.add('hidden');
+        });
+
+        document.getElementById('btn-modal-download').addEventListener('click', async () => {
+            exportModal.classList.add('hidden');
+            if (window.showSaveFilePicker) {
+                try {
+                    const isPDF = pendingExportFilename.endsWith('.pdf');
+                    const mime = isPDF ? 'application/pdf' : 'image/png';
+                    const ext = isPDF ? '.pdf' : '.png';
+                    
+                    const fileHandle = await window.showSaveFilePicker({
+                        suggestedName: pendingExportFilename,
+                        types: [{ description: 'Documento VDC', accept: { [mime]: [ext] } }]
+                    });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(pendingExportBlob);
+                    await writable.close();
+                    showToast('Guardado en el equipo', 'success');
+                } catch (pickerErr) {
+                    if (pickerErr.name !== 'AbortError') forceClassicDownload(pendingExportBlob, pendingExportFilename);
+                }
+            } else {
+                forceClassicDownload(pendingExportBlob, pendingExportFilename);
+            }
+        });
+
+        // CAPTURAR IMAGEN
         document.getElementById('btn-capture').addEventListener('click', async () => {
             if (!state.pdfDoc) return null;
             if (!validateUser()) return;
-            showToast('Generando Captura de alta calidad...', 'info');
-            const currentZoom = state.zoom; state.zoom = 1.0; updateZoomUI();
             
-            try {
-                await new Promise(r => setTimeout(r, 150));
-                const canvas = await html2canvas(DOM.wrapper, { scale: 1, useCORS: true, backgroundColor: '#ffffff' });
-                state.zoom = currentZoom; updateZoomUI(); 
-                
-                canvas.toBlob(async (blob) => {
-                    const filename = `Captura_${state.currentUser.replace(/ /g,'_')}_${Date.now()}.png`;
-                    const file = new File([blob], filename, { type: 'image/png' });
+            DOM.loading.querySelector('p').textContent = 'Generando Captura...';
+            DOM.loading.style.display = 'flex'; DOM.loading.classList.remove('hidden');
+            
+            setTimeout(async () => {
+                try {
+                    const currentZoom = state.zoom; state.zoom = 1.0; updateZoomUI();
+                    await new Promise(r => setTimeout(r, 150));
+                    const canvas = await html2canvas(DOM.wrapper, { scale: 1, useCORS: true, backgroundColor: '#ffffff' });
+                    state.zoom = currentZoom; updateZoomUI(); 
                     
-                    // Detectar si es dispositivo móvil
-                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                    
-                    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-                        // En móviles abre menú de WhatsApp, Correo, etc.
-                        try {
-                            await navigator.share({
-                                files: [file],
-                                title: 'Captura de Inspección',
-                                text: `Adjunto captura de inspección VDC realizada por ${state.currentUser}.`
-                            });
-                            showToast('Compartido exitosamente', 'success');
-                        } catch (err) {
-                            if (err.name !== 'AbortError') forceClassicDownload(blob, filename);
-                        }
-                    } else if (window.showSaveFilePicker) {
-                        // En PC abre ventana "Guardar Como..." para elegir ruta
-                        try {
-                            const fileHandle = await window.showSaveFilePicker({
-                                suggestedName: filename,
-                                types: [{ description: 'Imagen PNG', accept: { 'image/png': ['.png'] } }]
-                            });
-                            const writable = await fileHandle.createWritable();
-                            await writable.write(blob);
-                            await writable.close();
-                            showToast('Imagen guardada en el equipo', 'success');
-                        } catch (pickerErr) {
-                            if (pickerErr.name !== 'AbortError') forceClassicDownload(blob, filename);
-                        }
-                    } else {
-                        // Fallback para navegadores de PC antiguos (Firefox/Safari antiguo)
-                        forceClassicDownload(blob, filename);
-                    }
-                }, 'image/png');
+                    canvas.toBlob((blob) => {
+                        const filename = `Captura_${state.currentUser.replace(/ /g,'_')}_${Date.now()}.png`;
+                        const file = new File([blob], filename, { type: 'image/png' });
+                        
+                        DOM.loading.style.display = 'none'; DOM.loading.classList.add('hidden');
+                        showExportOptions(file, blob, filename);
+                    }, 'image/png');
 
-            } catch (err) { state.zoom = currentZoom; updateZoomUI(); showToast('Error en exportación', 'error'); }
+                } catch (err) { 
+                    DOM.loading.style.display = 'none'; DOM.loading.classList.add('hidden');
+                    state.zoom = currentZoom; updateZoomUI(); showToast('Error en exportación', 'error'); 
+                }
+            }, 50);
         });
 
-        // EXPORTAR PDF Y COMPARTIR/GUARDAR NATIVAMENTE
+        // EXPORTAR PDF REPORTE MULTIPAGINA
         document.getElementById('btn-share').addEventListener('click', async () => {
             if (!state.pdfDoc) { showToast('No hay documento abierto para exportar', 'error'); return; }
             if (!validateUser()) return;
-            showToast('Maquetando Reporte PDF. Esto puede tardar...', 'info');
+            
+            DOM.loading.querySelector('p').textContent = 'Maquetando PDF. Esto puede tardar...';
+            DOM.loading.style.display = 'flex'; DOM.loading.classList.remove('hidden');
             
             setTimeout(async () => {
                 try {
@@ -767,37 +834,13 @@
                     const filename = `Reporte_Oficial_${state.currentUser.replace(/ /g,'_')}_${Date.now()}.pdf`;
                     const file = new File([pdfBlob], filename, { type: 'application/pdf' });
                     
-                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                    
-                    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-                        try {
-                            await navigator.share({
-                                files: [file],
-                                title: 'Reporte VDC',
-                                text: `Adjunto matriz de hallazgos VDC en formato PDF elaborada por ${state.currentUser}.`
-                            });
-                            showToast('Reporte compartido exitosamente', 'success');
-                        } catch (err) {
-                            if (err.name !== 'AbortError') forceClassicDownload(pdfBlob, filename);
-                        }
-                    } else if (window.showSaveFilePicker) {
-                        try {
-                            const fileHandle = await window.showSaveFilePicker({
-                                suggestedName: filename,
-                                types: [{ description: 'Reporte PDF', accept: { 'application/pdf': ['.pdf'] } }]
-                            });
-                            const writable = await fileHandle.createWritable();
-                            await writable.write(pdfBlob);
-                            await writable.close();
-                            showToast('Reporte guardado en el equipo', 'success');
-                        } catch (pickerErr) {
-                            if (pickerErr.name !== 'AbortError') forceClassicDownload(pdfBlob, filename);
-                        }
-                    } else {
-                        forceClassicDownload(pdfBlob, filename);
-                    }
+                    DOM.loading.style.display = 'none'; DOM.loading.classList.add('hidden');
+                    showExportOptions(file, pdfBlob, filename);
 
-                } catch (err) { showToast('Error crítico generando el Reporte PDF', 'error'); }
+                } catch (err) { 
+                    DOM.loading.style.display = 'none'; DOM.loading.classList.add('hidden');
+                    showToast('Error crítico generando el Reporte PDF', 'error'); 
+                }
             }, 50); 
         });
 
